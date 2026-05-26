@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
     
     <style>
-        /* --- ORIGINAL THEME VARIABLES --- */
         :root {
             --plyr-color-main: #e50914; 
             --primary-color: #e50914;
@@ -40,8 +39,8 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        /* FIX: Remove blue tap highlight and outline on all buttons/links */
-        button, a, input[type="button"], input[type="submit"], .quality-btn, .header-btn, .premium-btn {
+        /* FIX: Remove blue tap highlight on all interactive elements */
+        button, a, input[type="button"], input[type="submit"] {
             outline: none;
             -webkit-tap-highlight-color: transparent;
             -webkit-focus-ring-color: transparent;
@@ -59,7 +58,6 @@
             user-select: none;
         }
 
-        /* --- HEADER STYLES --- */
         .video-header {
             max-width: 1280px; margin: 0 auto 25px auto;
             display: flex; justify-content: space-between; align-items: center;
@@ -91,11 +89,9 @@
         input:checked + .slider { background-color: var(--primary-color); }
         input:checked + .slider:before { transform: translateX(26px); }
 
-        /* --- PLAYER STYLES --- */
-        .video-wrapper { max-width: 1280px; width: 95%; margin: 0 auto; position: relative;}
+        .video-wrapper { max-width: 1280px; width: 95%; margin: 0 auto; position: relative; }
         .player-container {
-            border-radius: var(--card-radius);
-            overflow: hidden;
+            border-radius: var(--card-radius); overflow: hidden;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
             position: relative; background: #000;
         }
@@ -159,97 +155,83 @@
         .plyr--video .plyr__controls { background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding-top: 20px; }
         .plyr__control--overlaid, .plyr--video .plyr__control:hover, .plyr--video .plyr__control[aria-expanded=true] { background: var(--primary-color); }
 
-        /* --- ADVERTISEMENT SECTION STYLES (BELOW PLAYER) --- */
+        /* Buffer progress bar shown during pre-buffer phase */
+        #buffer-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            background-color: rgba(0, 0, 0, 0.82); z-index: 101; backdrop-filter: blur(5px);
+        }
+        #buffer-overlay.visible { display: flex; }
+        .buffer-label {
+            color: var(--text-secondary); font-size: 0.9rem;
+            margin-bottom: 14px; font-weight: 500; letter-spacing: 0.5px;
+        }
+        .buffer-track {
+            width: 220px; height: 4px; background: var(--border-color);
+            border-radius: 4px; overflow: hidden;
+        }
+        .buffer-fill {
+            height: 100%; width: 0%;
+            background: var(--primary-color);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 8px var(--primary-glow);
+        }
+        .buffer-percent {
+            color: var(--text-primary); font-size: 0.85rem;
+            margin-top: 10px; font-weight: 600;
+        }
+
+        /* ── ADS — UNTOUCHED ── */
         .custom-ad-section {
-            width: 100%;
-            max-width: 800px;
-            margin: 20px auto;
-            text-align: center;
-            font-family: Arial, sans-serif;
-            background-color: transparent;
-            padding: 10px;
+            width: 100%; max-width: 800px; margin: 20px auto;
+            text-align: center; font-family: Arial, sans-serif;
+            background-color: transparent; padding: 10px;
         }
         .download-buttons-container {
-            display: flex;
-            justify-content: center;
-            gap: 25px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            padding-top: 15px; 
+            display: flex; justify-content: center; gap: 25px;
+            margin-bottom: 20px; flex-wrap: wrap; padding-top: 15px;
         }
-        .premium-btn-wrapper {
-            position: relative;
-            display: inline-block;
-        }
+        .premium-btn-wrapper { position: relative; display: inline-block; }
         .premium-btn {
             display: inline-block;
             background: linear-gradient(135deg, #e50914, #b20710);
-            color: #ffffff !important;
-            text-decoration: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            font-weight: 800;
-            font-size: 16px;
+            color: #ffffff !important; text-decoration: none;
+            padding: 15px 30px; border-radius: 8px; font-weight: 800; font-size: 16px;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
-            min-width: 180px;
-            border: 1px solid #ff4b55;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            animation: pulse 2s infinite; 
+            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4); min-width: 180px;
+            border: 1px solid #ff4b55; text-transform: uppercase;
+            letter-spacing: 1px; animation: pulse 2s infinite;
         }
         .premium-btn.btn-alt {
             background: linear-gradient(135deg, #1f80e0, #125ca6);
             box-shadow: 0 4px 15px rgba(31, 128, 224, 0.4);
-            border: 1px solid #4da3ff;
-            animation-delay: 1s; 
+            border: 1px solid #4da3ff; animation-delay: 1s;
         }
         .premium-btn:hover {
             transform: translateY(-4px) scale(1.02);
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
-            color: #ffffff !important;
-            animation: none; 
+            color: #ffffff !important; animation: none;
         }
         .badge {
-            position: absolute;
-            top: -12px;
-            right: -10px;
-            background-color: #ffcc00; 
-            color: #000000;
-            font-size: 11px;
-            font-weight: bold;
-            padding: 4px 8px;
-            border-radius: 12px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            z-index: 10;
-            border: 1px solid #fff;
+            position: absolute; top: -12px; right: -10px;
+            background-color: #ffcc00; color: #000000;
+            font-size: 11px; font-weight: bold; padding: 4px 8px;
+            border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            z-index: 10; border: 1px solid #fff;
         }
-        .badge-alt {
-            background-color: #00e676; 
-            color: #000;
-        }
+        .badge-alt { background-color: #00e676; color: #000; }
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.03); }
-            100% { transform: scale(1); }
+            0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); }
         }
         .sponsor-text {
-            color: var(--text-secondary);
-            font-size: 11px;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            color: var(--text-secondary); font-size: 11px; margin-bottom: 8px;
+            text-transform: uppercase; letter-spacing: 1px;
         }
         .native-ad-container {
-            margin-top: 10px;
-            min-height: 100px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-            overflow: hidden;
-            background: var(--background-secondary);
-            border-radius: 8px;
+            margin-top: 10px; min-height: 100px; display: flex;
+            justify-content: center; align-items: center; width: 100%;
+            overflow: hidden; background: var(--background-secondary); border-radius: 8px;
         }
 
         @media (max-width: 768px) {
@@ -260,83 +242,62 @@
 </head>
 <body>
 
-    <!-- ============================================================ -->
-    <!--   FEATURE 3: AGGRESSIVE ANTI-DEBUGGING                       -->
-    <!--   Runs BEFORE anything else loads. Kills devtools instantly.  -->
-    <!-- ============================================================ -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!--  ANTI-DEBUGGING — runs synchronously before page renders    -->
+    <!-- ════════════════════════════════════════════════════════════ -->
     <script>
-        (function() {
-            'use strict';
+    (function() {
+        'use strict';
 
-            // ── Basic keyboard shortcut block ──────────────────────
-            document.addEventListener('contextmenu', e => e.preventDefault());
-            document.addEventListener('keydown', function(e) {
-                if (e.keyCode === 123) { e.preventDefault(); return false; }
-                if (e.ctrlKey && e.shiftKey && ['I','C','J','K'].includes(String.fromCharCode(e.keyCode))) { e.preventDefault(); return false; }
-                if (e.ctrlKey && e.keyCode === 'U'.charCodeAt(0)) { e.preventDefault(); return false; }
-                if (e.ctrlKey && e.keyCode === 'S'.charCodeAt(0)) { e.preventDefault(); return false; }
-            });
-
-            // ── Security violation handler ─────────────────────────
-            // Called whenever devtools are detected
-            function triggerSecurityViolation() {
-                // Pause any playing video immediately
-                const vids = document.querySelectorAll('video');
-                vids.forEach(v => { try { v.pause(); v.src = ''; } catch(err) {} });
-
-                // Wipe the entire page with a red warning
-                document.body.innerHTML = [
-                    '<div style="',
-                    'position:fixed;top:0;left:0;width:100%;height:100%;',
-                    'background:#0f0f0f;display:flex;flex-direction:column;',
-                    'align-items:center;justify-content:center;z-index:99999;">',
-                    '<div style="background:#c0392b;padding:40px 60px;border-radius:12px;text-align:center;max-width:500px;">',
-                    '<svg width="64" height="64" viewBox="0 0 24 24" fill="#fff" style="margin-bottom:16px">',
-                    '<path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>',
-                    '</svg>',
-                    '<h2 style="color:#fff;font-size:1.4rem;font-family:sans-serif;margin-bottom:12px;">',
-                    'Security Violation</h2>',
-                    '<p style="color:rgba(255,255,255,0.85);font-family:sans-serif;font-size:0.95rem;line-height:1.6;">',
-                    'Developer Tools are not permitted on this page.<br>',
-                    'Please close DevTools and refresh to continue.',
-                    '</p></div></div>'
-                ].join('');
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('keydown', function(e) {
+            if (e.keyCode === 123) { e.preventDefault(); return false; }
+            if (e.ctrlKey && e.shiftKey && ['I','C','J','K'].includes(String.fromCharCode(e.keyCode))) {
+                e.preventDefault(); return false;
             }
+            if (e.ctrlKey && ['U','S'].includes(String.fromCharCode(e.keyCode))) {
+                e.preventDefault(); return false;
+            }
+        });
 
-            // ── Method 1: Debugger timing trap ────────────────────
-            // If DevTools are open, the debugger statement causes a
-            // measurable time delay (> threshold ms).
-            var _devtoolsOpen = false;
-            var _devtoolsCheckInterval = setInterval(function() {
-                var start = performance.now();
-                // This is a no-op in normal execution but halts in DevTools
-                (function() { /* empty */ }['constructor']('debugger')());
-                var elapsed = performance.now() - start;
-                if (elapsed > 100) {
-                    if (!_devtoolsOpen) {
-                        _devtoolsOpen = true;
-                        clearInterval(_devtoolsCheckInterval);
-                        triggerSecurityViolation();
-                    }
-                }
-            }, 1000);
+        function triggerSecurityViolation() {
+            document.querySelectorAll('video').forEach(v => {
+                try { v.pause(); v.src = ''; } catch(_) {}
+            });
+            document.body.innerHTML = [
+                '<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:#0f0f0f;',
+                'display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;">',
+                '<div style="background:#c0392b;padding:40px 60px;border-radius:12px;text-align:center;max-width:500px;">',
+                '<svg width="64" height="64" viewBox="0 0 24 24" fill="#fff" style="margin-bottom:16px">',
+                '<path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>',
+                '<h2 style="color:#fff;font-size:1.4rem;font-family:sans-serif;margin-bottom:12px;">Security Violation</h2>',
+                '<p style="color:rgba(255,255,255,0.85);font-family:sans-serif;font-size:0.95rem;line-height:1.6;">',
+                'Developer Tools are not permitted on this page.<br>Close DevTools and refresh to continue.</p>',
+                '</div></div>'
+            ].join('');
+        }
 
-            // ── Method 2: Window size heuristic ───────────────────
-            // DevTools docked to the side/bottom reduce window size.
-            var _widthThreshold  = window.outerWidth  - window.innerWidth  > 160;
-            var _heightThreshold = window.outerHeight - window.innerHeight > 160;
-            setInterval(function() {
-                var widthDiff  = window.outerWidth  - window.innerWidth;
-                var heightDiff = window.outerHeight - window.innerHeight;
-                if (widthDiff > 160 || heightDiff > 160) {
-                    if (!_devtoolsOpen) {
-                        _devtoolsOpen = true;
-                        triggerSecurityViolation();
-                    }
-                }
-            }, 1500);
+        var _devtoolsOpen = false;
 
-        })();
+        // Method 1: debugger timing trap
+        setInterval(function() {
+            var t = performance.now();
+            (function(){}['constructor']('debugger')());
+            if (performance.now() - t > 100 && !_devtoolsOpen) {
+                _devtoolsOpen = true;
+                triggerSecurityViolation();
+            }
+        }, 1000);
+
+        // Method 2: window size heuristic (docked devtools)
+        setInterval(function() {
+            if ((window.outerWidth - window.innerWidth > 160 ||
+                 window.outerHeight - window.innerHeight > 160) && !_devtoolsOpen) {
+                _devtoolsOpen = true;
+                triggerSecurityViolation();
+            }
+        }, 1500);
+    })();
     </script>
 
     <div class="container">
@@ -346,31 +307,50 @@
             </a>
             <h1 id="video-title">Loading...</h1>
             <div class="theme-switch-wrapper">
-                <label class="theme-switch" for="theme-toggle"><input type="checkbox" id="theme-toggle" /><span class="slider round"></span></label>
+                <label class="theme-switch" for="theme-toggle">
+                    <input type="checkbox" id="theme-toggle" />
+                    <span class="slider round"></span>
+                </label>
             </div>
         </header>
 
         <div class="video-wrapper">
             <div class="player-container" id="player-container">
+
                 <div class="skeleton-loader" id="skeleton-loader">
                     <div class="spinner"></div>
-                    <div style="color: var(--text-secondary); margin-top: 20px; font-weight: 500;">Securing Connection...</div>
+                    <div style="color: var(--text-secondary); margin-top: 20px; font-weight: 500;">
+                        Securing Connection...
+                    </div>
                 </div>
 
                 <div class="loading-spinner" id="loading-spinner" style="display: none;">
                     <div class="spinner"></div>
                 </div>
 
+                <!-- Pre-buffer overlay: shown while we wait for the burst to fill the buffer -->
+                <div id="buffer-overlay">
+                    <div class="buffer-label">Buffering stream, please wait…</div>
+                    <div class="buffer-track">
+                        <div class="buffer-fill" id="buffer-fill"></div>
+                    </div>
+                    <div class="buffer-percent" id="buffer-percent">0%</div>
+                </div>
+
                 <canvas id="ambient-canvas"></canvas>
-                <video id="video-player" playsinline></video>
+                <video id="video-player" playsinline preload="auto"></video>
 
                 <div class="skip-overlay" id="skip-overlay">
                     <div class="skip-icon" id="rewind-icon">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1l-5 4 5 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H3.99c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"></path></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M11.99 5V1l-5 4 5 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H3.99c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                        </svg>
                         <span>10s</span>
                     </div>
                     <div class="skip-icon" id="forward-icon">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.01 5V1l5 4-5 4V6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"></path></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12.01 5V1l5 4-5 4V6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/>
+                        </svg>
                         <span>10s</span>
                     </div>
                 </div>
@@ -379,29 +359,29 @@
             <div class="quality-controls" id="quality-controls"></div>
         </div>
 
-        <!-- ======================================================== -->
-        <!--  ADS SECTION — UNTOUCHED                                  -->
-        <!-- ======================================================== -->
+        <!-- ════ ADS SECTION — 100% UNTOUCHED ════ -->
         <div class="custom-ad-section">
             <div class="download-buttons-container">
                 <div class="premium-btn-wrapper">
                     <span class="badge">100% Safe</span>
-                    <a href="https://prototypesorting.com/i21iauwsb?key=6b00d3506eed76ffc541d5b8f27156c8" target="_blank" rel="noopener nofollow" class="premium-btn">
+                    <a href="https://prototypesorting.com/i21iauwsb?key=6b00d3506eed76ffc541d5b8f27156c8"
+                       target="_blank" rel="noopener nofollow" class="premium-btn">
                         High Speed Download
                     </a>
                 </div>
                 <div class="premium-btn-wrapper">
                     <span class="badge badge-alt">No Buffering</span>
-                    <a href="https://prototypesorting.com/i21iauwsb?key=6b00d3506eed76ffc541d5b8f27156c8" target="_blank" rel="noopener nofollow" class="premium-btn btn-alt">
+                    <a href="https://prototypesorting.com/i21iauwsb?key=6b00d3506eed76ffc541d5b8f27156c8"
+                       target="_blank" rel="noopener nofollow" class="premium-btn btn-alt">
                         Direct Fast Link
                     </a>
                 </div>
             </div>
-
             <div class="sponsor-text">Sponsored Advertisements</div>
-
             <div class="native-ad-container">
-                <script async="async" data-cfasync="false" src="https://prototypesorting.com/5ab3a60ce402e169fca3535a339d5089/invoke.js"></script>
+                <script async="async" data-cfasync="false"
+                    src="https://prototypesorting.com/5ab3a60ce402e169fca3535a339d5089/invoke.js">
+                </script>
                 <div id="container-5ab3a60ce402e169fca3535a339d5089"></div>
             </div>
         </div>
@@ -414,282 +394,422 @@
 
     <script src="https://prototypesorting.com/62/2d/7a/622d7aecc37b15a260bdb0db3861e9da.js"></script>
     <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- hls.js is NOT loaded — backend serves direct MP4, HLS is not used -->
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
 
-            // ── DOM refs ───────────────────────────────────────────
-            const videoPlayer    = document.getElementById('video-player');
-            const skeletonLoader = document.getElementById('skeleton-loader');
-            const loadingSpinner = document.getElementById('loading-spinner');
-            const videoTitle     = document.getElementById('video-title');
-            const qualityControls= document.getElementById('quality-controls');
-            const ambientCanvas  = document.getElementById('ambient-canvas');
-            const themeToggle    = document.getElementById('theme-toggle');
+        // ── DOM refs ──────────────────────────────────────────────
+        const videoPlayer     = document.getElementById('video-player');
+        const skeletonLoader  = document.getElementById('skeleton-loader');
+        const loadingSpinner  = document.getElementById('loading-spinner');
+        const bufferOverlay   = document.getElementById('buffer-overlay');
+        const bufferFill      = document.getElementById('buffer-fill');
+        const bufferPercent   = document.getElementById('buffer-percent');
+        const videoTitle      = document.getElementById('video-title');
+        const qualityControls = document.getElementById('quality-controls');
+        const ambientCanvas   = document.getElementById('ambient-canvas');
+        const themeToggle     = document.getElementById('theme-toggle');
 
-            let player, hls, animationFrameId;
-            const ambientCtx = ambientCanvas.getContext('2d');
+        let player          = null;
+        let animationFrameId= null;
+        const ambientCtx    = ambientCanvas.getContext('2d');
 
-            // ──────────────────────────────────────────────────────
-            //  FEATURE 1: ROLLING TOKEN SYSTEM
-            //  currentStreamToken is injected by HLS.js xhrSetup
-            //  into every chunk request URL automatically.
-            // ──────────────────────────────────────────────────────
-            let currentStreamToken  = 'INITIAL_TOKEN'; // Will be replaced on first fetch
-            let currentVideoId      = null;            // Set after API response
-            let tokenRefreshInterval= null;
+        // ── State ─────────────────────────────────────────────────
+        let currentToken        = null;   // live token appended to every URL
+        let currentBaseStreamUrl= null;   // raw URL without ?token=
+        let currentPostId       = null;
+        let tokenRefreshInterval= null;
+        let bufferCheckInterval = null;
+        let isSwapping          = false;  // guard to prevent concurrent token swaps
 
-            /**
-             * Silently fetches a fresh token from the backend.
-             * Your Python/aiohttp endpoint should return JSON: { "token": "xyz..." }
-             */
-            async function refreshToken() {
-                if (!currentVideoId) return;
-                try {
-                    const res  = await fetch(`/api/get_token?video_id=${currentVideoId}&_=${Date.now()}`);
-                    if (!res.ok) throw new Error('Token fetch failed');
-                    const data = await res.json();
-                    if (data && data.token) {
-                        currentStreamToken = data.token;
-                        // No UI feedback needed — seamless to the user
+        // ── How many seconds of buffer we demand before first play ─
+        // The backend bursts fast for 10 s. We ask for 8 s of buffer
+        // so normal playback never drains it, even after throttle kicks in.
+        const MIN_BUFFER_SECONDS = 8;
+
+        // ════════════════════════════════════════════════════════════
+        //  UTILITY: build a tokenised URL
+        // ════════════════════════════════════════════════════════════
+        function buildUrl(base, token) {
+            if (!token) return base;
+            const sep = base.includes('?') ? '&' : '?';
+            return `${base}${sep}token=${encodeURIComponent(token)}`;
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  TOKEN FETCHING
+        //  Your aiohttp endpoint should return: { "token": "abc..." }
+        // ════════════════════════════════════════════════════════════
+        async function fetchToken(postId) {
+            const res = await fetch(
+                `/api/get_token?video_id=${encodeURIComponent(postId)}&_=${Date.now()}`
+            );
+            if (!res.ok) throw new Error(`Token endpoint returned ${res.status}`);
+            const data = await res.json();
+            if (!data || !data.token) throw new Error('Token missing in response');
+            return data.token;
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  TOKEN REFRESH STRATEGY FOR DIRECT MP4
+        //
+        //  Problem: once the browser opens a byte-range connection to
+        //  /stream/{id}?token=OLD, it keeps that TCP connection alive.
+        //  We cannot hot-swap the token inside the existing connection.
+        //
+        //  Solution (Seamless Seek-Resume Swap):
+        //   1. Silently fetch a new token every 45 s.
+        //   2. If the video has >= MIN_BUFFER_SECONDS buffered ahead,
+        //      the user will NOT notice a re-connect (buffer covers it).
+        //   3. We save currentTime, point videoPlayer.src at the new
+        //      tokenised URL, then seek back and resume.
+        //   4. The browser sends a Range: bytes=N request to the new
+        //      URL, the backend bursts again from that byte offset,
+        //      and the buffer refills within 1-2 s.
+        // ════════════════════════════════════════════════════════════
+        function getBufferedAhead() {
+            if (!videoPlayer || !videoPlayer.buffered || !videoPlayer.buffered.length) return 0;
+            const ct = videoPlayer.currentTime;
+            for (let i = 0; i < videoPlayer.buffered.length; i++) {
+                if (videoPlayer.buffered.start(i) <= ct + 0.5 &&
+                    videoPlayer.buffered.end(i)   >  ct) {
+                    return videoPlayer.buffered.end(i) - ct;
+                }
+            }
+            return 0;
+        }
+
+        async function doTokenSwap(newToken) {
+            // Guard: don't run concurrently or if player isn't set up
+            if (isSwapping || !player || !currentBaseStreamUrl) return;
+            isSwapping = true;
+
+            try {
+                const bufferedAhead = getBufferedAhead();
+                const wasPlaying    = !player.paused;
+                const savedTime     = videoPlayer.currentTime;
+
+                // Show loading spinner only if buffer is thin (< 3 s)
+                if (bufferedAhead < 3) {
+                    loadingSpinner.style.display = 'flex';
+                }
+
+                // Build the new tokenised URL
+                currentToken = newToken;
+                const newUrl = buildUrl(currentBaseStreamUrl, currentToken);
+
+                // Point the video element at the new URL.
+                // The browser will issue a Range request from ~savedTime's
+                // byte offset, so it won't re-download from the start.
+                videoPlayer.src = newUrl;
+                videoPlayer.load();
+
+                // Wait for enough data to seek safely
+                await new Promise((resolve) => {
+                    function onCanPlay() {
+                        videoPlayer.removeEventListener('canplay', onCanPlay);
+                        resolve();
                     }
-                } catch (err) {
-                    // Silently fail; the backend will invalidate stale tokens
-                    // and the player will show a natural buffering error
-                    console.warn('[KC] Token refresh failed silently.');
-                }
-            }
+                    videoPlayer.addEventListener('canplay', onCanPlay);
 
-            /**
-             * Start the rolling 45-second token refresh loop.
-             * Token expires every 60 s on the backend, so 45 s gives
-             * a 15-second overlap — zero interruption for normal viewers,
-             * but download managers holding an old URL will fail at 60 s.
-             */
-            function startTokenRefresh() {
-                stopTokenRefresh(); // clear any previous interval
-                tokenRefreshInterval = setInterval(refreshToken, 45 * 1000);
-            }
-
-            function stopTokenRefresh() {
-                if (tokenRefreshInterval) {
-                    clearInterval(tokenRefreshInterval);
-                    tokenRefreshInterval = null;
-                }
-            }
-
-            // ── Theme Management (unchanged) ───────────────────────
-            themeToggle.addEventListener('change', () => {
-                document.body.classList.toggle('light-mode');
-                localStorage.setItem('theme', themeToggle.checked ? 'light' : 'dark');
-            });
-            function loadTheme() {
-                if (localStorage.getItem('theme') === 'light') {
-                    document.body.classList.add('light-mode');
-                    themeToggle.checked = true;
-                }
-            }
-
-            // ── Ambient Background (unchanged) ─────────────────────
-            function drawAmbientFrame() {
-                if (!player || player.paused || player.ended || !videoPlayer.videoWidth) {
-                    cancelAnimationFrame(animationFrameId);
-                    return;
-                }
-                ambientCtx.drawImage(videoPlayer, 0, 0, ambientCanvas.width, ambientCanvas.height);
-                animationFrameId = requestAnimationFrame(drawAmbientFrame);
-            }
-
-            // ──────────────────────────────────────────────────────
-            //  FEATURE 4: QUALITY SWITCHER — EXACTLY AS ORIGINAL
-            //  Saves time + quality, reloads page → forces backend
-            //  to drop old Telegram connection and open a fresh one.
-            // ──────────────────────────────────────────────────────
-            window.changeQuality = function(qualityUrl, qualityLabel) {
-                const currentTime = player ? player.currentTime : 0;
-                localStorage.setItem('savedUserQuality', qualityLabel);
-                localStorage.setItem('playbackPosition',  currentTime);
-                window.location.reload();
-            };
-
-            // ──────────────────────────────────────────────────────
-            //  FEATURE 2: BLOB URL OBFUSCATION  +
-            //  FEATURE 1: HLS.js xhrSetup TOKEN INJECTION
-            // ──────────────────────────────────────────────────────
-
-            /**
-             * Fetches the .m3u8 manifest through JS (invisible in the
-             * browser's Network tab URL bar as a playable link),
-             * converts it to a Blob URL, and passes THAT to HLS.js.
-             *
-             * HLS.js xhrSetup intercepts EVERY segment (.ts / .m4s)
-             * request and appends the latest currentStreamToken,
-             * so chunks are always fetched with a fresh credential.
-             */
-            async function fetchAndBlobify(sourceUrl) {
-                try {
-                    const res = await fetch(sourceUrl, { credentials: 'include' });
-                    if (!res.ok) throw new Error('Manifest fetch failed');
-                    const blob    = await res.blob();
-                    const blobUrl = URL.createObjectURL(blob);
-                    return blobUrl;
-                } catch (err) {
-                    // Fallback: use direct URL (non-blob). Segment tokens still work.
-                    console.warn('[KC] Blob obfuscation failed, using direct URL.');
-                    return sourceUrl;
-                }
-            }
-
-            async function setupPlayer(sourceUrl, startTime = 0) {
-                const isHls = sourceUrl.includes('.m3u8');
-
-                if (isHls && Hls.isSupported()) {
-
-                    // Step 1: Fetch manifest and hide the real URL behind a Blob
-                    const manifestSource = await fetchAndBlobify(sourceUrl);
-
-                    // Step 2: Create HLS instance with token-injection xhrSetup
-                    hls = new Hls({
-                        maxBufferLength: 30,  // Keep buffer small
-
-                        // ── FEATURE 1 CORE: xhrSetup ──────────────
-                        // Called before EVERY XHR (manifest re-fetch, segments, keys).
-                        // We append the live token to each real URL.
-                        // The Blob URL manifest is local so no token needed for it,
-                        // but segment URLs are real server URLs and DO need the token.
-                        xhrSetup: function(xhr, url) {
-                            // Only append token to real server requests, not blob: URLs
-                            if (!url.startsWith('blob:')) {
-                                const separator = url.includes('?') ? '&' : '?';
-                                const securedUrl = `${url}${separator}token=${currentStreamToken}`;
-                                xhr.open('GET', securedUrl, true);
-                            }
-                        }
-                    });
-
-                    hls.loadSource(manifestSource);
-                    hls.attachMedia(videoPlayer);
-
-                    // Start the rolling token refresh once HLS is alive
-                    startTokenRefresh();
-
-                } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Safari native HLS — Blob + token logic not applicable here.
-                    // Safari handles HLS natively without HLS.js.
-                    videoPlayer.src = sourceUrl;
-                } else {
-                    // Non-HLS (direct .mp4 etc.)
-                    videoPlayer.src = sourceUrl;
-                }
-
-                player = new Plyr(videoPlayer, {
-                    settings: ['captions', 'quality', 'speed', 'loop'],
-                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'fullscreen']
+                    // Timeout fallback — if canplay doesn't fire in 8 s, carry on anyway
+                    setTimeout(resolve, 8000);
                 });
 
-                player.on('ready', () => {
-                    skeletonLoader.style.display = 'none';
-                    const savedVolume = localStorage.getItem('playerVolume');
-                    if (savedVolume) player.volume = parseFloat(savedVolume);
-
-                    // Resume from saved position (quality-switch resume, unchanged)
-                    if (startTime > 0) {
-                        player.once('canplay', () => {
-                            player.currentTime = startTime;
-                            player.play();
-                        });
-                    }
-                });
-
-                player.on('play',        () => { ambientCanvas.classList.add('active'); drawAmbientFrame(); });
-                player.on('pause',       () => { ambientCanvas.classList.remove('active'); cancelAnimationFrame(animationFrameId); });
-                player.on('volumechange',() => localStorage.setItem('playerVolume', player.volume));
-                player.on('waiting',     () => loadingSpinner.style.display = 'flex');
-                player.on('playing',     () => loadingSpinner.style.display = 'none');
-
-                // Stop token refresh if video ends to avoid unnecessary requests
-                player.on('ended', () => stopTokenRefresh());
-            }
-
-            // ── Main Init (unchanged structure) ───────────────────
-            async function initializePlayer() {
-                loadTheme();
-
-                const urlParams = new URLSearchParams(window.location.search);
-                const postId  = urlParams.get('view_id') || urlParams.get('id');
-                const season  = urlParams.get('season')  || urlParams.get('s');
-                const episode = urlParams.get('episode') || urlParams.get('e');
-
-                if (!postId) {
-                    videoTitle.textContent = 'Error: Invalid Link';
-                    skeletonLoader.innerHTML = `<div style="color: #ff5555;">Invalid Video Link.</div>`;
-                    return;
+                // Restore position and resume
+                if (savedTime > 0) {
+                    videoPlayer.currentTime = savedTime;
+                }
+                loadingSpinner.style.display = 'none';
+                if (wasPlaying) {
+                    try { await videoPlayer.play(); } catch(_) {}
                 }
 
-                // Store video ID globally so the token refresher can use it
-                currentVideoId = postId;
-
-                // Fetch initial token BEFORE starting the player
-                await refreshToken();
-
-                try {
-                    let apiUrl = `https://www.keralacaptain.shop/wp-json/keralacaptain/v1/get_player_data?post_id=${postId}`;
-                    if (season && episode) apiUrl += `&season=${season}&episode=${episode}`;
-
-                    const response = await fetch(apiUrl);
-                    if (!response.ok) throw new Error('Video not found or access denied.');
-                    const videoData = await response.json();
-
-                    // Set Title
-                    let displayTitle = videoData.title;
-                    if (videoData.current_episode) displayTitle += ` - ${videoData.current_episode}`;
-                    videoTitle.textContent = displayTitle;
-
-                    const qualities = videoData.stream_links;
-                    const qualityMap = new Map(Object.entries(qualities));
-
-                    // Sort 1080p → 720p → 480p
-                    const sortedQualityLabels = Array.from(qualityMap.keys()).sort((a, b) => {
-                        return parseInt(b.replace('p', '')) - parseInt(a.replace('p', ''));
-                    });
-
-                    // Resume logic (unchanged)
-                    const savedQuality     = localStorage.getItem('savedUserQuality');
-                    const playbackPosition = parseFloat(localStorage.getItem('playbackPosition')) || 0;
-                    let initialQualityLabel = sortedQualityLabels[0];
-
-                    if (savedQuality && qualityMap.has(savedQuality)) {
-                        initialQualityLabel = savedQuality;
-                    }
-                    const initialUrl = qualityMap.get(initialQualityLabel);
-
-                    // Render Quality Buttons (unchanged)
-                    qualityControls.innerHTML = '';
-                    sortedQualityLabels.forEach(label => {
-                        const url    = qualityMap.get(label);
-                        const button = document.createElement('button');
-                        button.className  = 'quality-btn';
-                        button.textContent= label;
-                        button.onclick    = () => window.changeQuality(url, label);
-                        if (label === initialQualityLabel) button.classList.add('active');
-                        qualityControls.appendChild(button);
-                    });
-
-                    // Init player
-                    await setupPlayer(initialUrl, playbackPosition);
-
-                    // Clear saved position after use (unchanged)
-                    localStorage.removeItem('playbackPosition');
-
-                } catch (error) {
-                    skeletonLoader.innerHTML = `<div style="color: #ff5555; padding: 20px; text-align:center;">Error: ${error.message}</div>`;
-                    stopTokenRefresh();
-                }
+            } catch (err) {
+                console.warn('[KC] Token swap failed:', err);
+                loadingSpinner.style.display = 'none';
+            } finally {
+                isSwapping = false;
             }
+        }
 
-            initializePlayer();
+        async function silentTokenRefresh() {
+            if (!currentPostId) return;
+            try {
+                const newToken = await fetchToken(currentPostId);
+                // Perform the seamless swap
+                await doTokenSwap(newToken);
+            } catch (err) {
+                console.warn('[KC] Silent token refresh failed — keeping current token.');
+                // Current stream continues uninterrupted with old token.
+                // Backend should allow a short grace window (~5 s) past 60 s
+                // so in-flight connections aren't killed mid-playback.
+            }
+        }
+
+        function startTokenRefresh() {
+            stopTokenRefresh();
+            // Refresh every 45 s — token lives 60 s on backend → 15 s grace
+            tokenRefreshInterval = setInterval(silentTokenRefresh, 45 * 1000);
+        }
+
+        function stopTokenRefresh() {
+            if (tokenRefreshInterval) {
+                clearInterval(tokenRefreshInterval);
+                tokenRefreshInterval = null;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  THROTTLE FIX: PRE-BUFFER GATE
+        //
+        //  The backend bursts at full speed for 10 s, then throttles.
+        //  We exploit the burst window to fill MIN_BUFFER_SECONDS of
+        //  buffer BEFORE showing the play button as active.
+        //
+        //  This way playback never stalls after the throttle kicks in,
+        //  because the buffer is already ahead of real-time playback.
+        // ════════════════════════════════════════════════════════════
+        function startBufferGate(onReady) {
+            bufferOverlay.classList.add('visible');
+
+            bufferCheckInterval = setInterval(function () {
+                const ahead = getBufferedAhead();
+                const pct   = Math.min(100, Math.round((ahead / MIN_BUFFER_SECONDS) * 100));
+
+                bufferFill.style.width    = pct + '%';
+                bufferPercent.textContent = pct + '%';
+
+                if (ahead >= MIN_BUFFER_SECONDS) {
+                    clearInterval(bufferCheckInterval);
+                    bufferCheckInterval = null;
+                    bufferOverlay.classList.remove('visible');
+                    onReady();
+                }
+            }, 300);
+        }
+
+        function stopBufferGate() {
+            if (bufferCheckInterval) {
+                clearInterval(bufferCheckInterval);
+                bufferCheckInterval = null;
+            }
+            bufferOverlay.classList.remove('visible');
+        }
+
+        // ── Theme Management ──────────────────────────────────────
+        themeToggle.addEventListener('change', () => {
+            document.body.classList.toggle('light-mode');
+            localStorage.setItem('theme', themeToggle.checked ? 'light' : 'dark');
         });
+        function loadTheme() {
+            if (localStorage.getItem('theme') === 'light') {
+                document.body.classList.add('light-mode');
+                themeToggle.checked = true;
+            }
+        }
+
+        // ── Ambient Background ────────────────────────────────────
+        function drawAmbientFrame() {
+            if (!player || player.paused || player.ended || !videoPlayer.videoWidth) {
+                cancelAnimationFrame(animationFrameId);
+                return;
+            }
+            ambientCtx.drawImage(videoPlayer, 0, 0, ambientCanvas.width, ambientCanvas.height);
+            animationFrameId = requestAnimationFrame(drawAmbientFrame);
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  QUALITY SWITCHER — EXACTLY AS ORIGINAL
+        //  Reload forces backend to drop the old Telegram connection.
+        //  Token is re-fetched on the fresh page load via initializePlayer.
+        // ════════════════════════════════════════════════════════════
+        window.changeQuality = function (qualityUrl, qualityLabel) {
+            stopTokenRefresh();
+            stopBufferGate();
+            const currentTime = player ? player.currentTime : 0;
+            localStorage.setItem('savedUserQuality',  qualityLabel);
+            localStorage.setItem('playbackPosition',  currentTime);
+            // Store base URL (without old token) so fresh token is used after reload
+            localStorage.setItem('savedBaseStreamUrl', qualityUrl);
+            window.location.reload();
+        };
+
+        // ════════════════════════════════════════════════════════════
+        //  SETUP PLAYER  (direct MP4 — no HLS.js)
+        // ════════════════════════════════════════════════════════════
+        async function setupPlayer(baseUrl, token, startTime) {
+            currentBaseStreamUrl = baseUrl;
+            currentToken         = token;
+
+            const tokenisedUrl = buildUrl(baseUrl, token);
+
+            // Set the video source with token baked in
+            // preload="auto" is already set in HTML — browser starts
+            // downloading immediately, exploiting the 10 s burst window.
+            videoPlayer.src = tokenisedUrl;
+            videoPlayer.load();
+
+            player = new Plyr(videoPlayer, {
+                settings : ['captions', 'quality', 'speed', 'loop'],
+                controls : ['play-large', 'play', 'progress', 'current-time',
+                            'mute', 'volume', 'settings', 'fullscreen'],
+                // Increase Plyr's stall tolerance so throttled delivery
+                // doesn't make it show its own spinner prematurely
+                seekTime : 10,
+            });
+
+            player.on('ready', () => {
+                // Hide the initial skeleton loader
+                skeletonLoader.style.display = 'none';
+
+                const savedVolume = localStorage.getItem('playerVolume');
+                if (savedVolume) player.volume = parseFloat(savedVolume);
+
+                // ── Resume from quality-switch saved position ──────
+                if (startTime > 0) {
+                    // For a resuming load: seek first, then gate the buffer
+                    const onFirstCanPlay = function () {
+                        videoPlayer.removeEventListener('canplay', onFirstCanPlay);
+                        videoPlayer.currentTime = startTime;
+
+                        startBufferGate(function () {
+                            player.play();
+                            startTokenRefresh();
+                        });
+                    };
+                    videoPlayer.addEventListener('canplay', onFirstCanPlay);
+
+                } else {
+                    // ── Fresh load: wait for pre-buffer gate ──────
+                    // We don't call play() until MIN_BUFFER_SECONDS
+                    // have been downloaded (uses the burst window).
+                    const onFirstCanPlay = function () {
+                        videoPlayer.removeEventListener('canplay', onFirstCanPlay);
+                        startBufferGate(function () {
+                            startTokenRefresh();
+                            // Player is ready — user can now press play
+                            // We do NOT force autoplay; let the user press play
+                        });
+                    };
+                    videoPlayer.addEventListener('canplay', onFirstCanPlay);
+                }
+            });
+
+            player.on('play',         () => { ambientCanvas.classList.add('active'); drawAmbientFrame(); });
+            player.on('pause',        () => { ambientCanvas.classList.remove('active'); cancelAnimationFrame(animationFrameId); });
+            player.on('volumechange', () => localStorage.setItem('playerVolume', player.volume));
+            player.on('waiting',      () => { if (!isSwapping) loadingSpinner.style.display = 'flex'; });
+            player.on('playing',      () => loadingSpinner.style.display = 'none');
+            player.on('ended',        () => stopTokenRefresh());
+
+            // ── Error handler: if token expired mid-stream, swap now ─
+            videoPlayer.addEventListener('error', async function (e) {
+                const code = videoPlayer.error ? videoPlayer.error.code : 0;
+                // code 4 = MEDIA_ERR_SRC_NOT_SUPPORTED (often a 403)
+                if (code === 4 || code === 2) {
+                    console.warn('[KC] Stream error — attempting token refresh recovery.');
+                    await silentTokenRefresh();
+                }
+            });
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  MAIN INIT
+        // ════════════════════════════════════════════════════════════
+        async function initializePlayer() {
+            loadTheme();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const postId  = urlParams.get('view_id') || urlParams.get('id');
+            const season  = urlParams.get('season')  || urlParams.get('s');
+            const episode = urlParams.get('episode') || urlParams.get('e');
+
+            if (!postId) {
+                videoTitle.textContent = 'Error: Invalid Link';
+                skeletonLoader.innerHTML = '<div style="color:#ff5555;">Invalid Video Link.</div>';
+                return;
+            }
+
+            currentPostId = postId;
+
+            try {
+                // ── STEP 1: Fetch initial token FIRST ─────────────
+                let initialToken;
+                try {
+                    initialToken = await fetchToken(postId);
+                } catch (tokenErr) {
+                    // If token endpoint fails, we still try to load (backend
+                    // might allow token-less access in dev mode)
+                    console.warn('[KC] Initial token fetch failed:', tokenErr);
+                    initialToken = '';
+                }
+
+                // ── STEP 2: Fetch video metadata from WP API ──────
+                let apiUrl = `https://www.keralacaptain.shop/wp-json/keralacaptain/v1/get_player_data?post_id=${postId}`;
+                if (season && episode) apiUrl += `&season=${season}&episode=${episode}`;
+
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('Video not found or access denied.');
+                const videoData = await response.json();
+
+                // Set page title
+                let displayTitle = videoData.title || 'Video';
+                if (videoData.current_episode) displayTitle += ` - ${videoData.current_episode}`;
+                videoTitle.textContent = displayTitle;
+
+                const qualities   = videoData.stream_links;
+                const qualityMap  = new Map(Object.entries(qualities));
+
+                // Sort 1080p → 720p → 480p
+                const sortedLabels = Array.from(qualityMap.keys()).sort((a, b) =>
+                    parseInt(b.replace('p','')) - parseInt(a.replace('p',''))
+                );
+
+                // ── STEP 3: Resolve starting quality + position ───
+                const savedQuality  = localStorage.getItem('savedUserQuality');
+                const savedPosition = parseFloat(localStorage.getItem('playbackPosition')) || 0;
+
+                let initialLabel = sortedLabels[0];
+                if (savedQuality && qualityMap.has(savedQuality)) {
+                    initialLabel = savedQuality;
+                }
+
+                // Base stream URL (no token) — token is appended by buildUrl()
+                const initialBaseUrl = qualityMap.get(initialLabel);
+
+                // ── STEP 4: Render quality buttons ────────────────
+                qualityControls.innerHTML = '';
+                sortedLabels.forEach(label => {
+                    const url    = qualityMap.get(label);
+                    const btn    = document.createElement('button');
+                    btn.className   = 'quality-btn';
+                    btn.textContent = label;
+                    btn.onclick     = () => window.changeQuality(url, label);
+                    if (label === initialLabel) btn.classList.add('active');
+                    qualityControls.appendChild(btn);
+                });
+
+                // ── STEP 5: Launch player with token ──────────────
+                await setupPlayer(initialBaseUrl, initialToken, savedPosition);
+
+                // Clear one-time resume state
+                localStorage.removeItem('playbackPosition');
+
+            } catch (err) {
+                skeletonLoader.innerHTML =
+                    `<div style="color:#ff5555;padding:20px;text-align:center;">
+                        Error: ${err.message}
+                     </div>`;
+                stopTokenRefresh();
+                stopBufferGate();
+            }
+        }
+
+        initializePlayer();
+    });
     </script>
 </body>
 </html>
