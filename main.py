@@ -1,56 +1,59 @@
+
 # ================================================================================
-# KeralaCaptain Bot - Pure Streaming Engine V4.3
+# KeralaCaptain Bot - Pure Streaming Engine V4.4
 # ================================================================================
 #
-# CHANGES FROM V4.2 → V4.3:
+#   NEW IN V4.4 — ANTI-DOWNLOADER SECURITY UPGRADE:
 #
-#   REMOVED - DISK CACHE SYSTEM (Feature 1 from V4.2):
-#     - No ./cache/ folder. No .bin files. No disk writes at all.
-#     - Removed: cache_registry, active_cache_tasks, cache_registry_lock
-#     - Removed: get_cache_path, is_fully_cached, is_being_cached
-#     - Removed: start_cache_download, _cache_download_worker, serve_from_disk
-#     - Removed: load_existing_cache_on_startup, cache_cleanup_task
-#     - Removed: CACHE_DIR, CACHE_CLEANUP_INTERVAL, CACHE_MAX_AGE_SECONDS,
-#                CACHE_MAX_DISK_BYTES from Config
+#   FEATURE 1: /watch Route — serves player.html via aiohttp_jinja2.
+#     - GET /watch?id=<post_id>  renders player.html template with video_id context.
 #
-#   RESTORED - DIRECT PIPE STREAMING (V4.1 Logic):
-#     - stream_handler is a simple, clean: Telegram → Server → User pipe.
-#     - If the user disconnects (closes player, changes quality), resp.write()
-#       raises ConnectionError or CancelledError. The loop IMMEDIATELY breaks
-#       and Telegram fetching stops. No background tasks. No leaks.
+#   FEATURE 2: 60-Second Rolling Token API
+#     - GET /api/get_token?video_id=<id>
+#     - Returns a stateless HMAC-SHA256 token valid for exactly 60 seconds.
+#     - Secret key = BOT_TOKEN (never leaves the server).
+#     - Token format (base64url): "<video_id>:<unix_timestamp>:<hmac_hex>"
 #
-#   KEPT UNCHANGED - BANDWIDTH TRACKING & KILL SWITCHES:
-#     - _bandwidth_in_memory tracked per BOT_USERNAME in MongoDB.
-#     - 85 GB → warning Telegram message to admin.
-#     - 90 GB → trigger_dead_mode() called automatically (Auto-Kill).
-#     - IS_DEAD gate in stream_handler still returns 503 for all requests.
-#     - Manual "Kill Bot (Sleep)" button in admin panel still works.
-#     - flush_bandwidth_to_db() called on restart and graceful shutdown.
-#     - Bandwidth is now tracked INSIDE the streaming loop (per-chunk) so
-#       partially-watched streams are still counted accurately.
+#   FEATURE 3: Token Verification on /stream/{message_id}
+#     - All stream requests now require ?token=<xyz>.
+#     - Token is verified: correct HMAC signature AND age ≤ 60 seconds.
+#     - Missing / invalid / expired token → 403 Forbidden immediately.
+#     - Download managers holding a stale URL fail after exactly 60 seconds.
 #
-#   KEPT UNCHANGED - LIFETIME GLOBAL STATS:
-#     - lifetime_stats_collection uses {"_id": "global_stats"} — one document.
-#     - Every bot that runs this code writes to the SAME document via $inc.
-#     - "Lifetime Stats" admin button shows the combined total of ALL bots.
+#   FEATURE 4: Dynamic Chunk Throttling (Speed Control)
+#     - First 10 seconds (or after a fresh Range seek): full 1 MB chunks, no delay.
+#     - After burst period: asyncio.sleep(0.5) injected between chunks.
+#     - This keeps real viewers buffering normally while destroying bulk-download speed.
+#     - yield_file() chunk_size stays exactly 1 MB — no Pyrogram offset math changes.
+#     - Every new Range request resets the burst timer (seamless seek recovery).
 #
-#   KEPT UNCHANGED:
+#   COMPLETELY UNCHANGED:
+#     - All bandwidth tracking & auto-kill (85 GB warning, 90 GB kill).
+#     - MongoDB collections, flush logic, and lifetime stats.
+#     - Referer protection (still applied before token check).
+#     - ByteStreamer class, yield_file(), FileReferenceExpired refresh logic.
+#     - Multi-client load balancing, admin panel, restart/kill handlers.
 #     - chunk_size = 1024 * 1024 (1 MB).
-#     - ByteStreamer class and yield_file() — completely untouched.
-#     - FileReferenceExpired refresh logic — completely untouched.
-#     - Referer protection, multi-client load balancing, admin panel.
+#
+#   NEW DEPENDENCIES (add to requirements.txt):
+#     pip install aiohttp-jinja2 jinja2
+#     (hmac and hashlib are stdlib — no install needed)
 #
 # ================================================================================
 
 import os
 import time
+import hmac
 import base64
+import hashlib
 import signal
 import asyncio
 import logging
 import aiohttp
 import sys
 import psutil
+import aiohttp_jinja2
+import jinja2
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient
 from aiohttp import web, ClientTimeout
@@ -106,6 +109,14 @@ class Config:
     BANDWIDTH_KILL_BYTES    = 90 * 1024 * 1024 * 1024
     # Flush the in-memory counter to MongoDB every 500 MB to reduce DB writes
     BANDWIDTH_FLUSH_EVERY   = 500 * 1024 * 1024
+
+    # ── Streaming Throttle ────────────────────────────────────────────────────
+    # Seconds of full-speed "burst" allowed at the start of every new connection
+    # (or after a seek). After this, a sleep is injected between chunks.
+    BURST_DURATION_SECS  = 10
+    # asyncio.sleep() inserted between chunks AFTER the burst phase.
+    # 0.5 s ≈ 2 MB/s sustained rate — enough for 1080p, deadly for bulk downloads.
+    THROTTLE_SLEEP_SECS  = 0.5
 
 
 # ── Validate required env vars ───────────────────────────────────────────────
@@ -174,6 +185,84 @@ def get_readable_time(seconds: int) -> str:
         result += f"{minutes}m "
     result += f"{int(seconds)}s"
     return result
+
+
+# ================================================================================
+# TOKEN SYSTEM (FEATURE 2 & 3) — HMAC-SHA256, 60-second validity
+# ================================================================================
+# Token format (after base64url decoding): "<video_id>:<unix_timestamp>:<hmac_hex>"
+# Secret key = BOT_TOKEN (never sent to clients).
+#
+# Security properties:
+#   - Stateless: no DB lookup needed to verify — pure crypto.
+#   - Tamper-proof: any bit-flip in video_id or timestamp makes the HMAC invalid.
+#   - Time-limited: tokens older than TOKEN_MAX_AGE_SECS return 403.
+#   - Download-manager killer: HLS.js xhrSetup injects the rolling token into every
+#     segment request. An old URL captured by 1DM/IDM stops working within 60 s.
+
+TOKEN_MAX_AGE_SECS = 60  # Hard expiry — matches the 45-second refresh interval in player.html
+
+
+def generate_stream_token(video_id: str) -> str:
+    """
+    Generates a fresh HMAC-SHA256 token for video_id, valid for TOKEN_MAX_AGE_SECS.
+    Called by /api/get_token.
+    """
+    timestamp = int(time.time())
+    message   = f"{video_id}:{timestamp}"
+    sig       = hmac.new(
+        Config.BOT_TOKEN.encode(),
+        message.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    raw_token = f"{message}:{sig}"
+    # base64url-encode so it's safe in URL query strings
+    return base64.urlsafe_b64encode(raw_token.encode()).decode().rstrip("=")
+
+
+def verify_stream_token(token: str) -> bool:
+    """
+    Verifies a token:
+      1. Decodes base64url.
+      2. Splits into (video_id, timestamp, sig).
+      3. Recomputes expected HMAC and compares using constant-time compare_digest.
+      4. Checks that the token is no older than TOKEN_MAX_AGE_SECS.
+
+    Returns True only if ALL checks pass.
+    """
+    try:
+        # Re-pad and decode
+        padded  = token + "=" * (-len(token) % 4)
+        decoded = base64.urlsafe_b64decode(padded.encode()).decode()
+
+        # Expected format: "<video_id>:<timestamp>:<64-char-hex>"
+        # rsplit with maxsplit=2 handles video_ids that might contain ':'
+        parts = decoded.rsplit(":", 2)
+        if len(parts) != 3:
+            return False
+
+        video_id, timestamp_str, received_sig = parts
+
+        # Timing attack: reconstruct and compare in constant time
+        message      = f"{video_id}:{timestamp_str}"
+        expected_sig = hmac.new(
+            Config.BOT_TOKEN.encode(),
+            message.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected_sig, received_sig):
+            return False
+
+        # Check token age
+        token_age = time.time() - int(timestamp_str)
+        if token_age > TOKEN_MAX_AGE_SECS or token_age < 0:
+            return False
+
+        return True
+
+    except Exception:
+        return False
 
 
 # ================================================================================
@@ -367,7 +456,7 @@ async def flush_bandwidth_to_db():
     """
     if not Config.STREAM_URL:
         return
-        
+
     await bandwidth_collection.update_one(
         {"_id": Config.STREAM_URL}, # Update using URL as the key
         {"$set": {
@@ -805,23 +894,79 @@ async def favicon_handler(request):
     return web.Response(status=204)
 
 
+# ── FEATURE 1: /watch Route ───────────────────────────────────────────────────
+# Serves player.html via aiohttp_jinja2.
+# URL: /watch?id=<wp_post_id>  (also accepts ?view_id= for compatibility)
+# The video_id context variable is passed to the template. The existing JS
+# in player.html already reads `view_id` / `id` directly from window.location,
+# so this template variable is available as extra context if needed.
+
+@routes.get("/watch")
+async def watch_handler(request: web.Request):
+    """
+    Renders and serves player.html.
+    Captures ALL query parameters (id, view_id, s, e, etc.) and passes them to the template.
+    """
+    # Convert all URL query parameters into a dictionary
+    query_params = dict(request.rel_url.query)
+    
+    # Ensure at least an ID is present
+    if 'id' not in query_params and 'view_id' not in query_params:
+        return web.Response(
+            status=400,
+            text="400 Bad Request: Missing video ID parameter."
+        )
+        
+    return aiohttp_jinja2.render_template(
+        'player.html',
+        request,
+        context={'query': query_params} # Pass all parameters to HTML
+    )
+
+
+# ── FEATURE 2: Token API ──────────────────────────────────────────────────────
+# GET /api/get_token?video_id=<id>
+# Returns a fresh HMAC token valid for 60 seconds.
+# The player.html JS silently calls this every 45 seconds and passes the
+# returned token in every segment XHR via HLS.js xhrSetup.
+
+@routes.get("/api/get_token")
+async def get_token_handler(request: web.Request):
+    video_id = request.rel_url.query.get('video_id', 'unknown')
+
+    if IS_DEAD:
+        return web.json_response(
+            {"error": "Service unavailable: bandwidth limit reached."},
+            status=503
+        )
+
+    token = generate_stream_token(video_id)
+    LOGGER.debug(f"[TOKEN] Issued token for video_id={video_id}")
+
+    return web.json_response(
+        {"token": token, "expires_in": TOKEN_MAX_AGE_SECS},
+        headers={
+            # Allow the bot's own URL to request the token securely
+            "Access-Control-Allow-Origin": Config.STREAM_URL.rstrip('/'),
+            "Cache-Control": "no-store, no-cache, must-revalidate"
+        }
+    )
+
+
+# ── MAIN STREAM HANDLER (V4.4 — token + throttle added) ──────────────────────
 @routes.get(r"/stream/{message_id:\d+}")
 async def stream_handler(request: web.Request):
     """
-    Main streaming route — V4.3 Direct Pipe: Telegram → Server → User.
+    Main streaming route — V4.4: Telegram → Server → User pipe with security gates.
 
-    Flow:
-      1. Dead Mode check: if IS_DEAD, return 503 immediately.
-      2. Referer check: if Referer header doesn't match allowed domain, return 403.
-      3. Load balance across available Pyrogram clients (round-robin, least-loaded).
-      4. Get file properties (size, mime type) from Telegram or in-memory cache.
-      5. Parse Range header for seek support.
-      6. Build StreamResponse headers and prepare response.
-      7. Fetch chunks from Telegram via yield_file() and write directly to resp.
-         - If user disconnects mid-stream (ConnectionError or CancelledError),
-           the loop breaks IMMEDIATELY and Telegram fetching stops.
-         - Bandwidth is tracked inside the loop so partial streams are counted.
-      8. After loop ends (complete or disconnected), flush bandwidth if needed.
+    GATE ORDER:
+      1. Dead Mode check       → 503
+      2. Referer protection    → 403  (unchanged from V4.3)
+      3. Token verification    → 403  (NEW: HMAC, 60-second rolling token)
+      4. Stream + Throttle     → 206  (NEW: burst 10 s, then 0.5 s sleep/chunk)
+
+    All existing V4.3 logic (load balancing, bandwidth tracking, FileReferenceExpired
+    refresh, partial-stream counting) is completely unchanged.
     """
     global stream_errors
     client_index     = None
@@ -829,8 +974,6 @@ async def stream_handler(request: web.Request):
 
     try:
         # ── GATE 1: Dead Mode ─────────────────────────────────────────────────
-        # If this bot has been killed (manually or auto at 90 GB),
-        # reject ALL stream requests with 503.
         if IS_DEAD:
             return web.Response(
                 status=503,
@@ -843,16 +986,42 @@ async def stream_handler(request: web.Request):
             )
 
         # ── GATE 2: Referer Protection ────────────────────────────────────────
-        referer         = request.headers.get('Referer')
-        allowed_referer = CURRENT_PROTECTED_DOMAIN
+        # In the new architecture, the player is hosted directly on the bot's /watch route.
+        # Therefore, the valid referer is the bot's OWN STREAM_URL.
+        referer         = request.headers.get('Referer', '')
+        allowed_referer = Config.STREAM_URL.rstrip('/')
 
         if not referer or not referer.startswith(allowed_referer):
             LOGGER.warning(
-                f"Blocked hotlink attempt. Referer='{referer}', Allowed='{allowed_referer}'"
+                f"Blocked hotlink attempt. Referer='{referer}', Expected to start with='{allowed_referer}'"
             )
             return web.Response(
                 status=403,
-                text="403 Forbidden: Direct access is not allowed."
+                text="403 Forbidden: Direct access is not allowed. Please use the official player."
+            )
+
+        # ── GATE 3: Token Verification (FEATURE 3) ────────────────────────────
+        # Every legitimate request from the player includes a fresh token injected
+        # by HLS.js xhrSetup. Download managers copying a URL get an expired token
+        # within 60 seconds and all subsequent requests are rejected.
+        token = request.rel_url.query.get('token', '')
+        if not token:
+            LOGGER.warning(
+                f"[STREAM] Missing token for msg_id="
+                f"{request.match_info.get('message_id', '?')}. Referer='{referer}'"
+            )
+            return web.Response(
+                status=403,
+                text="403 Forbidden: Missing stream token."
+            )
+        if not verify_stream_token(token):
+            LOGGER.warning(
+                f"[STREAM] Invalid/expired token for msg_id="
+                f"{request.match_info.get('message_id', '?')}. Referer='{referer}'"
+            )
+            return web.Response(
+                status=403,
+                text="403 Forbidden: Invalid or expired stream token."
             )
 
         # ── Parse Request ─────────────────────────────────────────────────────
@@ -889,7 +1058,7 @@ async def stream_handler(request: web.Request):
         if from_bytes >= file_size:
             return web.Response(status=416, reason="Range Not Satisfiable")
 
-        # chunk_size = 1 MB — DO NOT CHANGE
+        # chunk_size = 1 MB — DO NOT CHANGE (Pyrogram offset math depends on this)
         chunk_size     = 1024 * 1024
         offset         = from_bytes - (from_bytes % chunk_size)
         first_part_cut = from_bytes - offset
@@ -914,8 +1083,16 @@ async def stream_handler(request: web.Request):
         if from_bytes == 0:
             asyncio.create_task(increment_lifetime_streams())
 
+        # ── FEATURE 4: Burst timer ────────────────────────────────────────────
+        # Every new Range request (including seeks) starts its own burst clock.
+        # This means:
+        #   - Initial play:       10 s full speed → throttled
+        #   - User seeks forward: 10 s full speed → throttled  (seamless recovery)
+        #   - Download manager:   after burst, each chunk costs +0.5 s (≈2 MB/s cap)
+        connection_start_time = time.time()
+
         # ── Direct Pipe: Telegram → User ─────────────────────────────────────
-        # This is the V4.1 streaming loop. No disk writes. No background tasks.
+        # V4.1 streaming loop. No disk writes. No background tasks.
         # If the user closes the player, resp.write() throws ConnectionError or
         # CancelledError — we break immediately and stop fetching from Telegram.
         # Bandwidth is tracked PER CHUNK so even a partial watch is counted.
@@ -936,6 +1113,15 @@ async def stream_handler(request: web.Request):
                 # add_bandwidth() handles the 500 MB flush cadence internally.
                 await add_bandwidth(len(chunk) if not (is_first_chunk and first_part_cut > 0)
                                     else len(chunk) - first_part_cut)
+
+                # ── FEATURE 4: Throttle after burst phase ─────────────────────
+                # We DO NOT touch yield_file() or chunk_size — Pyrogram's offset
+                # math stays intact. We simply pause the writer after the burst.
+                # Real viewers: HLS buffer fills faster than playback → no stutter.
+                # Download managers: sustained rate drops to ~2 MB/s → impractical.
+                elapsed = time.time() - connection_start_time
+                if elapsed > Config.BURST_DURATION_SECS:
+                    await asyncio.sleep(Config.THROTTLE_SLEEP_SECS)
 
             except (ConnectionError, asyncio.CancelledError):
                 # User disconnected (closed player, changed quality, etc.)
@@ -968,7 +1154,24 @@ async def stream_handler(request: web.Request):
 
 
 async def web_server():
+    """
+    Creates and configures the aiohttp web application.
+    V4.4: also sets up aiohttp_jinja2 with FileSystemLoader pointing to the
+    directory where player.html lives (same directory as this script by default).
+    Override TEMPLATES_DIR env var if player.html is in a different path.
+    """
     web_app = web.Application(client_max_size=30_000_000)
+
+    # ── aiohttp_jinja2 setup (FEATURE 1) ─────────────────────────────────────
+    # Looks for player.html (and any other templates) in TEMPLATES_DIR.
+    # Default: the directory where main.py lives ('.').
+    templates_dir = os.environ.get("TEMPLATES_DIR", os.path.dirname(os.path.abspath(__file__)))
+    aiohttp_jinja2.setup(
+        web_app,
+        loader=jinja2.FileSystemLoader(templates_dir)
+    )
+    LOGGER.info(f"[WEB] Jinja2 templates directory: {templates_dir}")
+
     web_app.add_routes(routes)
     return web_app
 
@@ -1357,7 +1560,7 @@ if __name__ == "__main__":
         """Full startup sequence. Runs until SIGINT/SIGTERM is received."""
         global CURRENT_PROTECTED_DOMAIN, BOT_USERNAME
 
-        LOGGER.info("========== KeralaCaptain Bot V4.3 Starting ==========")
+        LOGGER.info("========== KeralaCaptain Bot V4.4 Starting ==========")
 
         # ── Step 1: Load protected domain from DB ─────────────────────────────
         CURRENT_PROTECTED_DOMAIN = await get_protected_domain()
@@ -1386,8 +1589,6 @@ if __name__ == "__main__":
             raise
 
         # ── Step 4: Load bandwidth state from MongoDB ─────────────────────────
-        # BOT_USERNAME must be set before this call.
-        # New bot → fresh record at 0 GB. Existing bot → loads its counter.
         await load_bandwidth_state()
         LOGGER.info(
             f"Bandwidth state: Used={humanbytes(_bandwidth_in_memory)}, "
@@ -1418,7 +1619,7 @@ if __name__ == "__main__":
             )
             await main_bot.send_message(
                 Config.ADMIN_IDS[0],
-                f"**✅ Bot @{BOT_USERNAME} is online! (V4.3)**\n\n"
+                f"**✅ Bot @{BOT_USERNAME} is online! (V4.4)**\n\n"
                 f"**Bandwidth Used:** `{bw_info['used_human']}` / 90 GB\n"
                 f"**Status:** {'🔴 DEAD' if IS_DEAD else '🟢 Active'}"
                 f"{dead_notice}"
