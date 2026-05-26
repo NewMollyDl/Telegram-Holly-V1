@@ -58,6 +58,7 @@
             user-select: none;
         }
 
+        /* ── HEADER ─────────────────────────────────────────── */
         .video-header {
             max-width: 1280px; margin: 0 auto 25px auto;
             display: flex; justify-content: space-between; align-items: center;
@@ -89,6 +90,7 @@
         input:checked + .slider { background-color: var(--primary-color); }
         input:checked + .slider:before { transform: translateX(26px); }
 
+        /* ── PLAYER ─────────────────────────────────────────── */
         .video-wrapper { max-width: 1280px; width: 95%; margin: 0 auto; position: relative; }
         .player-container {
             border-radius: var(--card-radius); overflow: hidden;
@@ -104,7 +106,8 @@
         }
         #ambient-canvas.active { opacity: 1; }
         
-        .skeleton-loader, .loading-spinner {
+        /* Skeleton loader — shown on initial page load only */
+        .skeleton-loader {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             background-color: rgba(0, 0, 0, 0.7);
@@ -115,23 +118,115 @@
             border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
+
+        /* ══════════════════════════════════════════════════════
+           V2 FIX: GENUINE BUFFER OVERLAY
+           Only appears when the browser fires a real 'waiting'
+           event. Hidden immediately on 'playing'.
+           Shows a circular SVG ring filled with REAL buffered %.
+           ══════════════════════════════════════════════════════ */
+        #buffer-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background-color: rgba(0, 0, 0, 0.65);
+            z-index: 50;                      /* below skeleton (100) but above video (2) */
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        #buffer-overlay.visible {
+            opacity: 1;
+            pointer-events: none;             /* NEVER block video controls */
+        }
+
+        /* Circular progress ring */
+        .ring-wrapper {
+            position: relative;
+            width: 80px; height: 80px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 12px;
+        }
+        .ring-svg {
+            width: 80px; height: 80px;
+            transform: rotate(-90deg);        /* start fill from top */
+            position: absolute; top: 0; left: 0;
+        }
+        .ring-track {
+            fill: none;
+            stroke: rgba(255,255,255,0.12);
+            stroke-width: 6;
+        }
+        .ring-fill {
+            fill: none;
+            stroke: var(--primary-color);
+            stroke-width: 6;
+            stroke-linecap: round;
+            /* circumference = 2 * π * r = 2 * 3.14159 * 32 ≈ 201.06 */
+            stroke-dasharray: 201.06;
+            stroke-dashoffset: 201.06;        /* 0% filled initially */
+            transition: stroke-dashoffset 0.35s ease;
+            filter: drop-shadow(0 0 6px var(--primary-color));
+        }
+        /* Inner spinning arc to show "actively loading" even at 0% */
+        .ring-spin {
+            fill: none;
+            stroke: rgba(255,255,255,0.25);
+            stroke-width: 6;
+            stroke-linecap: round;
+            stroke-dasharray: 40 161.06;
+            animation: ring-rotate 1.1s linear infinite;
+        }
+        @keyframes ring-rotate {
+            to { stroke-dashoffset: -201.06; }
+        }
+        .ring-percent {
+            position: relative; z-index: 1;
+            font-size: 0.8rem; font-weight: 700;
+            color: #fff; letter-spacing: 0.5px;
+            line-height: 1;
+        }
+        .buffer-label {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.8rem; font-weight: 500;
+            letter-spacing: 0.3px;
+            margin-bottom: 6px;
+        }
+        /* Slow internet sub-label (shown after 6 s of waiting) */
+        .slow-label {
+            color: var(--warning-color);
+            font-size: 0.72rem;
+            margin-top: 6px;
+            opacity: 0;
+            transition: opacity 0.4s;
+            text-align: center;
+            padding: 0 20px;
+        }
+        .slow-label.visible { opacity: 1; }
+
+        /* ── SKIP OVERLAY ──
+           pointer-events: none so it NEVER blocks clicks/fullscreen */
         .skip-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 21;
-            display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0;
+            display: flex; justify-content: space-between; align-items: center;
+            pointer-events: none; opacity: 0;
         }
         .skip-overlay.active { opacity: 1; transition: opacity 0.1s ease; }
         .skip-icon {
-            color: white; background: rgba(0,0,0,0.6); border-radius: 50%;
-            width: 50px; height: 50px; display: none;
+            color: white; background: rgba(0,0,0,0.55); border-radius: 50%;
+            width: 54px; height: 54px; display: none;
             flex-direction: column; align-items: center; justify-content: center;
-            margin: 0 60px; animation: skip-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin: 0 50px; animation: skip-pop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .skip-icon.show { display: flex; }
-        .skip-icon svg { width: 24px; height: 24px; }
-        .skip-icon span { font-size: 11px; font-weight: bold; margin-top: 1px; }
-        @keyframes skip-pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .skip-icon svg { width: 22px; height: 22px; }
+        .skip-icon span { font-size: 10px; font-weight: 700; margin-top: 2px; }
+        @keyframes skip-pop {
+            from { transform: scale(0.7); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
 
+        /* ── QUALITY BUTTONS ────────────────────────────────── */
         .quality-controls { display: flex; justify-content: center; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
         .quality-btn {
             background: var(--background-secondary); border: none; border-radius: 20px; padding: 8px 16px;
@@ -140,6 +235,7 @@
         .quality-btn:hover { background-color: var(--border-color); }
         .quality-btn.active { background: var(--primary-color); color: #fff; box-shadow: 0 0 10px var(--primary-glow); }
 
+        /* ── NOTIFICATION ───────────────────────────────────── */
         #notification {
             position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
             padding: 12px 22px; border-radius: 8px; font-weight: 500; z-index: 9999;
@@ -147,42 +243,21 @@
             opacity: 0; transition: opacity 0.3s, bottom 0.3s; pointer-events: none;
             display: flex; align-items: center; gap: 10px;
             border-left: 5px solid var(--info-color);
+            max-width: 90vw; text-align: left;
+            white-space: nowrap;
         }
         #notification.show { bottom: 100px; opacity: 1; }
         #notification.warning { border-left-color: var(--warning-color); }
+        #notification.error   { border-left-color: #e74c3c; }
 
+        /* ── PLYR OVERRIDES ─────────────────────────────────── */
         .plyr { border-radius: var(--card-radius); z-index: 2; }
         .plyr--video .plyr__controls { background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding-top: 20px; }
         .plyr__control--overlaid, .plyr--video .plyr__control:hover, .plyr--video .plyr__control[aria-expanded=true] { background: var(--primary-color); }
 
-        /* Buffer progress bar shown during pre-buffer phase */
-        #buffer-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: none; flex-direction: column; justify-content: center; align-items: center;
-            background-color: rgba(0, 0, 0, 0.82); z-index: 101; backdrop-filter: blur(5px);
-        }
-        #buffer-overlay.visible { display: flex; }
-        .buffer-label {
-            color: var(--text-secondary); font-size: 0.9rem;
-            margin-bottom: 14px; font-weight: 500; letter-spacing: 0.5px;
-        }
-        .buffer-track {
-            width: 220px; height: 4px; background: var(--border-color);
-            border-radius: 4px; overflow: hidden;
-        }
-        .buffer-fill {
-            height: 100%; width: 0%;
-            background: var(--primary-color);
-            border-radius: 4px;
-            transition: width 0.3s ease;
-            box-shadow: 0 0 8px var(--primary-glow);
-        }
-        .buffer-percent {
-            color: var(--text-primary); font-size: 0.85rem;
-            margin-top: 10px; font-weight: 600;
-        }
-
-        /* ── ADS — UNTOUCHED ── */
+        /* ══════════════════════════════════════════════════════
+           ADS SECTION — 100% UNTOUCHED
+           ══════════════════════════════════════════════════════ */
         .custom-ad-section {
             width: 100%; max-width: 800px; margin: 20px auto;
             text-align: center; font-family: Arial, sans-serif;
@@ -222,7 +297,9 @@
         }
         .badge-alt { background-color: #00e676; color: #000; }
         @keyframes pulse {
-            0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); }
+            0%   { transform: scale(1);    }
+            50%  { transform: scale(1.03); }
+            100% { transform: scale(1);    }
         }
         .sponsor-text {
             color: var(--text-secondary); font-size: 11px; margin-bottom: 8px;
@@ -242,15 +319,14 @@
 </head>
 <body>
 
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!--  ANTI-DEBUGGING — runs synchronously before page renders    -->
-    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- ══════════════════════════════════════════════════════════
+         ANTI-DEBUGGING — synchronous, runs before page renders
+         ══════════════════════════════════════════════════════════ -->
     <script>
-    (function() {
+    (function () {
         'use strict';
-
-        document.addEventListener('contextmenu', e => e.preventDefault());
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+        document.addEventListener('keydown', function (e) {
             if (e.keyCode === 123) { e.preventDefault(); return false; }
             if (e.ctrlKey && e.shiftKey && ['I','C','J','K'].includes(String.fromCharCode(e.keyCode))) {
                 e.preventDefault(); return false;
@@ -261,8 +337,8 @@
         });
 
         function triggerSecurityViolation() {
-            document.querySelectorAll('video').forEach(v => {
-                try { v.pause(); v.src = ''; } catch(_) {}
+            document.querySelectorAll('video').forEach(function(v) {
+                try { v.pause(); v.src = ''; } catch (_) {}
             });
             document.body.innerHTML = [
                 '<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:#0f0f0f;',
@@ -279,22 +355,18 @@
 
         var _devtoolsOpen = false;
 
-        // Method 1: debugger timing trap
-        setInterval(function() {
+        setInterval(function () {
             var t = performance.now();
-            (function(){}['constructor']('debugger')());
+            (function () {}['constructor']('debugger')());
             if (performance.now() - t > 100 && !_devtoolsOpen) {
-                _devtoolsOpen = true;
-                triggerSecurityViolation();
+                _devtoolsOpen = true; triggerSecurityViolation();
             }
         }, 1000);
 
-        // Method 2: window size heuristic (docked devtools)
-        setInterval(function() {
+        setInterval(function () {
             if ((window.outerWidth - window.innerWidth > 160 ||
                  window.outerHeight - window.innerHeight > 160) && !_devtoolsOpen) {
-                _devtoolsOpen = true;
-                triggerSecurityViolation();
+                _devtoolsOpen = true; triggerSecurityViolation();
             }
         }, 1500);
     })();
@@ -317,6 +389,7 @@
         <div class="video-wrapper">
             <div class="player-container" id="player-container">
 
+                <!-- Initial skeleton: shown until player.on('ready') fires -->
                 <div class="skeleton-loader" id="skeleton-loader">
                     <div class="spinner"></div>
                     <div style="color: var(--text-secondary); margin-top: 20px; font-weight: 500;">
@@ -324,22 +397,38 @@
                     </div>
                 </div>
 
-                <div class="loading-spinner" id="loading-spinner" style="display: none;">
-                    <div class="spinner"></div>
-                </div>
-
-                <!-- Pre-buffer overlay: shown while we wait for the burst to fill the buffer -->
+                <!-- ══════════════════════════════════════════════
+                     V2: GENUINE BUFFER OVERLAY
+                     Shown ONLY on real 'waiting' events.
+                     Uses an SVG ring filled with actual buffer %.
+                     pointer-events:none — never blocks the player.
+                     ══════════════════════════════════════════════ -->
                 <div id="buffer-overlay">
-                    <div class="buffer-label">Buffering stream, please wait…</div>
-                    <div class="buffer-track">
-                        <div class="buffer-fill" id="buffer-fill"></div>
+                    <div class="ring-wrapper">
+                        <!-- Animated spinning arc (always visible when overlay is shown) -->
+                        <svg class="ring-svg" viewBox="0 0 80 80">
+                            <circle class="ring-track" cx="40" cy="40" r="32"/>
+                            <!-- Spinning background arc -->
+                            <circle class="ring-spin"
+                                    cx="40" cy="40" r="32"
+                                    stroke-dasharray="40 161.06"
+                                    stroke-dashoffset="0"/>
+                            <!-- Actual buffer fill ring -->
+                            <circle class="ring-fill" id="ring-fill"
+                                    cx="40" cy="40" r="32"/>
+                        </svg>
+                        <span class="ring-percent" id="ring-percent">0%</span>
                     </div>
-                    <div class="buffer-percent" id="buffer-percent">0%</div>
+                    <div class="buffer-label" id="buffer-label">Buffering...</div>
+                    <div class="slow-label" id="slow-label">
+                        Slow connection detected.<br>Check your internet or refresh.
+                    </div>
                 </div>
 
                 <canvas id="ambient-canvas"></canvas>
                 <video id="video-player" playsinline preload="auto"></video>
 
+                <!-- Skip icons — pointer-events:none, never block fullscreen -->
                 <div class="skip-overlay" id="skip-overlay">
                     <div class="skip-icon" id="rewind-icon">
                         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -359,7 +448,9 @@
             <div class="quality-controls" id="quality-controls"></div>
         </div>
 
-        <!-- ════ ADS SECTION — 100% UNTOUCHED ════ -->
+        <!-- ══════════════════════════════════════════════════════
+             ADS — 100% UNTOUCHED
+             ══════════════════════════════════════════════════════ -->
         <div class="custom-ad-section">
             <div class="download-buttons-container">
                 <div class="premium-btn-wrapper">
@@ -394,142 +485,198 @@
 
     <script src="https://prototypesorting.com/62/2d/7a/622d7aecc37b15a260bdb0db3861e9da.js"></script>
     <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
-    <!-- hls.js is NOT loaded — backend serves direct MP4, HLS is not used -->
+    <!-- hls.js NOT loaded — backend serves direct MP4, not HLS -->
 
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         'use strict';
 
-        // ── DOM refs ──────────────────────────────────────────────
+        // ── DOM refs ──────────────────────────────────────────
         const videoPlayer     = document.getElementById('video-player');
         const skeletonLoader  = document.getElementById('skeleton-loader');
-        const loadingSpinner  = document.getElementById('loading-spinner');
         const bufferOverlay   = document.getElementById('buffer-overlay');
-        const bufferFill      = document.getElementById('buffer-fill');
-        const bufferPercent   = document.getElementById('buffer-percent');
+        const ringFill        = document.getElementById('ring-fill');
+        const ringPercent     = document.getElementById('ring-percent');
+        const bufferLabel     = document.getElementById('buffer-label');
+        const slowLabel       = document.getElementById('slow-label');
         const videoTitle      = document.getElementById('video-title');
         const qualityControls = document.getElementById('quality-controls');
         const ambientCanvas   = document.getElementById('ambient-canvas');
         const themeToggle     = document.getElementById('theme-toggle');
+        const skipOverlay     = document.getElementById('skip-overlay');
+        const rewindIcon      = document.getElementById('rewind-icon');
+        const forwardIcon     = document.getElementById('forward-icon');
+        const playerContainer = document.getElementById('player-container');
+        const notif           = document.getElementById('notification');
+        const notifText       = document.getElementById('notification-text');
+        const notifIcon       = document.getElementById('notification-icon');
 
-        let player          = null;
-        let animationFrameId= null;
-        const ambientCtx    = ambientCanvas.getContext('2d');
+        let player            = null;
+        let animationFrameId  = null;
+        const ambientCtx      = ambientCanvas.getContext('2d');
 
-        // ── State ─────────────────────────────────────────────────
-        let currentToken        = null;   // live token appended to every URL
-        let currentBaseStreamUrl= null;   // raw URL without ?token=
-        let currentPostId       = null;
-        let tokenRefreshInterval= null;
-        let bufferCheckInterval = null;
-        let isSwapping          = false;  // guard to prevent concurrent token swaps
+        // ── State ─────────────────────────────────────────────
+        let currentToken         = null;
+        let currentBaseStreamUrl = null;
+        let currentPostId        = null;
+        let tokenRefreshInterval = null;
+        let isSwapping           = false;
 
-        // ── How many seconds of buffer we demand before first play ─
-        // The backend bursts fast for 10 s. We ask for 8 s of buffer
-        // so normal playback never drains it, even after throttle kicks in.
-        const MIN_BUFFER_SECONDS = 8;
+        // Ring SVG circumference: 2 * π * 32 = 201.06
+        const RING_CIRCUMFERENCE = 201.06;
 
-        // ════════════════════════════════════════════════════════════
-        //  UTILITY: build a tokenised URL
-        // ════════════════════════════════════════════════════════════
-        function buildUrl(base, token) {
-            if (!token) return base;
-            const sep = base.includes('?') ? '&' : '?';
-            return `${base}${sep}token=${encodeURIComponent(token)}`;
+        // Slow-internet detection: show warning after this many ms of waiting
+        const SLOW_INTERNET_MS   = 6000;
+        let slowInternetTimer    = null;
+        let bufferRingInterval   = null;
+        let notifDismissTimer    = null;
+
+        // ══════════════════════════════════════════════════════
+        //  NOTIFICATION HELPER
+        // ══════════════════════════════════════════════════════
+        function showNotification(message, type) {
+            type = type || 'info';
+            notifText.textContent = message;
+            notif.className = 'show' + (type !== 'info' ? ' ' + type : '');
+            notifIcon.className = type === 'warning'
+                ? 'fas fa-exclamation-triangle'
+                : type === 'error'
+                    ? 'fas fa-times-circle'
+                    : 'fas fa-info-circle';
+
+            clearTimeout(notifDismissTimer);
+            notifDismissTimer = setTimeout(function () {
+                notif.classList.remove('show');
+            }, type === 'warning' ? 7000 : 4000);
         }
 
-        // ════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════
+        //  RING PROGRESS HELPER
+        //  Reads REAL videoPlayer.buffered and converts to %
+        // ══════════════════════════════════════════════════════
+        function getRealBufferedPercent() {
+            var duration = videoPlayer.duration;
+            if (!duration || isNaN(duration) || !videoPlayer.buffered.length) return 0;
+            // Find the buffered range that covers (or is ahead of) currentTime
+            var ct = videoPlayer.currentTime;
+            var maxEnd = 0;
+            for (var i = 0; i < videoPlayer.buffered.length; i++) {
+                var end = videoPlayer.buffered.end(i);
+                if (end > maxEnd) maxEnd = end;
+            }
+            return Math.min(100, Math.round((maxEnd / duration) * 100));
+        }
+
+        function updateRing(pct) {
+            // strokeDashoffset = CIRCUMFERENCE * (1 - pct/100)
+            // 0% → offset = CIRCUMFERENCE (empty ring)
+            // 100% → offset = 0 (full ring)
+            var offset = RING_CIRCUMFERENCE * (1 - pct / 100);
+            ringFill.style.strokeDashoffset = offset;
+            ringPercent.textContent = pct + '%';
+        }
+
+        function startRingUpdater() {
+            stopRingUpdater();
+            bufferRingInterval = setInterval(function () {
+                var pct = getRealBufferedPercent();
+                updateRing(pct);
+            }, 300);
+        }
+
+        function stopRingUpdater() {
+            if (bufferRingInterval) {
+                clearInterval(bufferRingInterval);
+                bufferRingInterval = null;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════
+        //  BUFFER OVERLAY — show/hide
+        //  Called ONLY by 'waiting' and 'playing'/'canplay' events.
+        //  This is the V2 fix: no pre-buffer gate, no fake display.
+        // ══════════════════════════════════════════════════════
+        function showBufferOverlay() {
+            updateRing(getRealBufferedPercent());
+            bufferOverlay.classList.add('visible');
+            startRingUpdater();
+
+            // Slow internet warning after SLOW_INTERNET_MS
+            clearTimeout(slowInternetTimer);
+            slowInternetTimer = setTimeout(function () {
+                slowLabel.classList.add('visible');
+                showNotification(
+                    'Slow internet detected. Try refreshing or check your connection.',
+                    'warning'
+                );
+            }, SLOW_INTERNET_MS);
+        }
+
+        function hideBufferOverlay() {
+            bufferOverlay.classList.remove('visible');
+            stopRingUpdater();
+            slowLabel.classList.remove('visible');
+            clearTimeout(slowInternetTimer);
+            // Update ring one final time to show real value
+            updateRing(getRealBufferedPercent());
+        }
+
+        // ══════════════════════════════════════════════════════
+        //  UTILITY: build tokenised URL
+        // ══════════════════════════════════════════════════════
+        function buildUrl(base, token) {
+            if (!token) return base;
+            var sep = base.includes('?') ? '&' : '?';
+            return base + sep + 'token=' + encodeURIComponent(token);
+        }
+
+        // ══════════════════════════════════════════════════════
         //  TOKEN FETCHING
-        //  Your aiohttp endpoint should return: { "token": "abc..." }
-        // ════════════════════════════════════════════════════════════
+        //  Backend endpoint: GET /api/get_token?video_id=X
+        //  Response: { "token": "abc..." }
+        // ══════════════════════════════════════════════════════
         async function fetchToken(postId) {
-            const res = await fetch(
-                `/api/get_token?video_id=${encodeURIComponent(postId)}&_=${Date.now()}`
+            var res = await fetch(
+                '/api/get_token?video_id=' + encodeURIComponent(postId) + '&_=' + Date.now()
             );
-            if (!res.ok) throw new Error(`Token endpoint returned ${res.status}`);
-            const data = await res.json();
+            if (!res.ok) throw new Error('Token endpoint returned ' + res.status);
+            var data = await res.json();
             if (!data || !data.token) throw new Error('Token missing in response');
             return data.token;
         }
 
-        // ════════════════════════════════════════════════════════════
-        //  TOKEN REFRESH STRATEGY FOR DIRECT MP4
-        //
-        //  Problem: once the browser opens a byte-range connection to
-        //  /stream/{id}?token=OLD, it keeps that TCP connection alive.
-        //  We cannot hot-swap the token inside the existing connection.
-        //
-        //  Solution (Seamless Seek-Resume Swap):
-        //   1. Silently fetch a new token every 45 s.
-        //   2. If the video has >= MIN_BUFFER_SECONDS buffered ahead,
-        //      the user will NOT notice a re-connect (buffer covers it).
-        //   3. We save currentTime, point videoPlayer.src at the new
-        //      tokenised URL, then seek back and resume.
-        //   4. The browser sends a Range: bytes=N request to the new
-        //      URL, the backend bursts again from that byte offset,
-        //      and the buffer refills within 1-2 s.
-        // ════════════════════════════════════════════════════════════
-        function getBufferedAhead() {
-            if (!videoPlayer || !videoPlayer.buffered || !videoPlayer.buffered.length) return 0;
-            const ct = videoPlayer.currentTime;
-            for (let i = 0; i < videoPlayer.buffered.length; i++) {
-                if (videoPlayer.buffered.start(i) <= ct + 0.5 &&
-                    videoPlayer.buffered.end(i)   >  ct) {
-                    return videoPlayer.buffered.end(i) - ct;
-                }
-            }
-            return 0;
-        }
-
+        // ══════════════════════════════════════════════════════
+        //  TOKEN REFRESH — Seamless Seek-Resume Swap
+        //  For direct MP4, we cannot hot-swap a running connection.
+        //  We save currentTime, set new src, reload, seek back.
+        //  The browser issues Range: bytes=N → backend bursts again.
+        //  If buffer is healthy the user sees no interruption at all.
+        // ══════════════════════════════════════════════════════
         async function doTokenSwap(newToken) {
-            // Guard: don't run concurrently or if player isn't set up
             if (isSwapping || !player || !currentBaseStreamUrl) return;
             isSwapping = true;
-
             try {
-                const bufferedAhead = getBufferedAhead();
-                const wasPlaying    = !player.paused;
-                const savedTime     = videoPlayer.currentTime;
+                var savedTime   = videoPlayer.currentTime;
+                var wasPlaying  = !player.paused;
+                var newUrl      = buildUrl(currentBaseStreamUrl, newToken);
+                currentToken    = newToken;
 
-                // Show loading spinner only if buffer is thin (< 3 s)
-                if (bufferedAhead < 3) {
-                    loadingSpinner.style.display = 'flex';
-                }
-
-                // Build the new tokenised URL
-                currentToken = newToken;
-                const newUrl = buildUrl(currentBaseStreamUrl, currentToken);
-
-                // Point the video element at the new URL.
-                // The browser will issue a Range request from ~savedTime's
-                // byte offset, so it won't re-download from the start.
                 videoPlayer.src = newUrl;
                 videoPlayer.load();
 
-                // Wait for enough data to seek safely
-                await new Promise((resolve) => {
-                    function onCanPlay() {
-                        videoPlayer.removeEventListener('canplay', onCanPlay);
-                        resolve();
-                    }
-                    videoPlayer.addEventListener('canplay', onCanPlay);
-
-                    // Timeout fallback — if canplay doesn't fire in 8 s, carry on anyway
+                // Wait for canplay (or timeout after 8 s)
+                await new Promise(function (resolve) {
+                    function onCp() { videoPlayer.removeEventListener('canplay', onCp); resolve(); }
+                    videoPlayer.addEventListener('canplay', onCp);
                     setTimeout(resolve, 8000);
                 });
 
-                // Restore position and resume
-                if (savedTime > 0) {
-                    videoPlayer.currentTime = savedTime;
-                }
-                loadingSpinner.style.display = 'none';
+                if (savedTime > 0) videoPlayer.currentTime = savedTime;
                 if (wasPlaying) {
-                    try { await videoPlayer.play(); } catch(_) {}
+                    try { await videoPlayer.play(); } catch (_) {}
                 }
-
             } catch (err) {
                 console.warn('[KC] Token swap failed:', err);
-                loadingSpinner.style.display = 'none';
             } finally {
                 isSwapping = false;
             }
@@ -538,20 +685,16 @@
         async function silentTokenRefresh() {
             if (!currentPostId) return;
             try {
-                const newToken = await fetchToken(currentPostId);
-                // Perform the seamless swap
+                var newToken = await fetchToken(currentPostId);
                 await doTokenSwap(newToken);
             } catch (err) {
                 console.warn('[KC] Silent token refresh failed — keeping current token.');
-                // Current stream continues uninterrupted with old token.
-                // Backend should allow a short grace window (~5 s) past 60 s
-                // so in-flight connections aren't killed mid-playback.
             }
         }
 
         function startTokenRefresh() {
             stopTokenRefresh();
-            // Refresh every 45 s — token lives 60 s on backend → 15 s grace
+            // Refresh every 45 s (token lives 60 s → 15 s grace window)
             tokenRefreshInterval = setInterval(silentTokenRefresh, 45 * 1000);
         }
 
@@ -562,45 +705,64 @@
             }
         }
 
-        // ════════════════════════════════════════════════════════════
-        //  THROTTLE FIX: PRE-BUFFER GATE
-        //
-        //  The backend bursts at full speed for 10 s, then throttles.
-        //  We exploit the burst window to fill MIN_BUFFER_SECONDS of
-        //  buffer BEFORE showing the play button as active.
-        //
-        //  This way playback never stalls after the throttle kicks in,
-        //  because the buffer is already ahead of real-time playback.
-        // ════════════════════════════════════════════════════════════
-        function startBufferGate(onReady) {
-            bufferOverlay.classList.add('visible');
+        // ══════════════════════════════════════════════════════
+        //  DOUBLE-TAP SKIP (YouTube-style)
+        //  Left half = rewind 10 s  |  Right half = forward 10 s
+        //  pointer-events on skip-overlay remains NONE so it
+        //  never blocks fullscreen or Plyr controls.
+        // ══════════════════════════════════════════════════════
+        var lastTapTime = 0;
+        var lastTapSide = null;
+        var skipIconTimer = null;
 
-            bufferCheckInterval = setInterval(function () {
-                const ahead = getBufferedAhead();
-                const pct   = Math.min(100, Math.round((ahead / MIN_BUFFER_SECONDS) * 100));
+        function flashSkipIcon(side) {
+            rewindIcon.classList.remove('show');
+            forwardIcon.classList.remove('show');
+            skipOverlay.classList.add('active');
+            if (side === 'left')  rewindIcon.classList.add('show');
+            if (side === 'right') forwardIcon.classList.add('show');
+            clearTimeout(skipIconTimer);
+            skipIconTimer = setTimeout(function () {
+                skipOverlay.classList.remove('active');
+                rewindIcon.classList.remove('show');
+                forwardIcon.classList.remove('show');
+            }, 600);
+        }
 
-                bufferFill.style.width    = pct + '%';
-                bufferPercent.textContent = pct + '%';
+        playerContainer.addEventListener('touchend', function (e) {
+            // Ignore taps on Plyr control bar (bottom 60px)
+            var rect    = playerContainer.getBoundingClientRect();
+            var touch   = e.changedTouches[0];
+            var tapY    = touch.clientY - rect.top;
+            if (tapY > rect.height - 60) return; // let Plyr handle controls
 
-                if (ahead >= MIN_BUFFER_SECONDS) {
-                    clearInterval(bufferCheckInterval);
-                    bufferCheckInterval = null;
-                    bufferOverlay.classList.remove('visible');
-                    onReady();
+            var now     = Date.now();
+            var tapX    = touch.clientX - rect.left;
+            var side    = tapX < rect.width / 2 ? 'left' : 'right';
+
+            if (now - lastTapTime < 300 && lastTapSide === side) {
+                // Double tap
+                e.preventDefault();
+                if (side === 'left') {
+                    videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 10);
+                    flashSkipIcon('left');
+                } else {
+                    videoPlayer.currentTime = Math.min(
+                        videoPlayer.duration || Infinity,
+                        videoPlayer.currentTime + 10
+                    );
+                    flashSkipIcon('right');
                 }
-            }, 300);
-        }
-
-        function stopBufferGate() {
-            if (bufferCheckInterval) {
-                clearInterval(bufferCheckInterval);
-                bufferCheckInterval = null;
+                lastTapTime = 0;
+                lastTapSide = null;
+            } else {
+                lastTapTime = now;
+                lastTapSide = side;
             }
-            bufferOverlay.classList.remove('visible');
-        }
+        }, { passive: false });
 
-        // ── Theme Management ──────────────────────────────────────
-        themeToggle.addEventListener('change', () => {
+        // ── Theme ─────────────────────────────────────────────
+        themeToggle.addEventListener('change', function () {
             document.body.classList.toggle('light-mode');
             localStorage.setItem('theme', themeToggle.checked ? 'light' : 'dark');
         });
@@ -611,121 +773,117 @@
             }
         }
 
-        // ── Ambient Background ────────────────────────────────────
+        // ── Ambient Background ────────────────────────────────
         function drawAmbientFrame() {
             if (!player || player.paused || player.ended || !videoPlayer.videoWidth) {
-                cancelAnimationFrame(animationFrameId);
-                return;
+                cancelAnimationFrame(animationFrameId); return;
             }
             ambientCtx.drawImage(videoPlayer, 0, 0, ambientCanvas.width, ambientCanvas.height);
             animationFrameId = requestAnimationFrame(drawAmbientFrame);
         }
 
-        // ════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════
         //  QUALITY SWITCHER — EXACTLY AS ORIGINAL
-        //  Reload forces backend to drop the old Telegram connection.
-        //  Token is re-fetched on the fresh page load via initializePlayer.
-        // ════════════════════════════════════════════════════════════
+        //  Page reload forces backend to drop old Telegram conn.
+        // ══════════════════════════════════════════════════════
         window.changeQuality = function (qualityUrl, qualityLabel) {
             stopTokenRefresh();
-            stopBufferGate();
-            const currentTime = player ? player.currentTime : 0;
-            localStorage.setItem('savedUserQuality',  qualityLabel);
-            localStorage.setItem('playbackPosition',  currentTime);
-            // Store base URL (without old token) so fresh token is used after reload
+            stopRingUpdater();
+            clearTimeout(slowInternetTimer);
+            var currentTime = player ? player.currentTime : 0;
+            localStorage.setItem('savedUserQuality',   qualityLabel);
+            localStorage.setItem('playbackPosition',   currentTime);
             localStorage.setItem('savedBaseStreamUrl', qualityUrl);
             window.location.reload();
         };
 
-        // ════════════════════════════════════════════════════════════
-        //  SETUP PLAYER  (direct MP4 — no HLS.js)
-        // ════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════
+        //  SETUP PLAYER  (direct MP4, no hls.js)
+        // ══════════════════════════════════════════════════════
         async function setupPlayer(baseUrl, token, startTime) {
             currentBaseStreamUrl = baseUrl;
             currentToken         = token;
 
-            const tokenisedUrl = buildUrl(baseUrl, token);
-
-            // Set the video source with token baked in
-            // preload="auto" is already set in HTML — browser starts
-            // downloading immediately, exploiting the 10 s burst window.
-            videoPlayer.src = tokenisedUrl;
+            var tokenisedUrl = buildUrl(baseUrl, token);
+            videoPlayer.src  = tokenisedUrl;
             videoPlayer.load();
 
             player = new Plyr(videoPlayer, {
                 settings : ['captions', 'quality', 'speed', 'loop'],
                 controls : ['play-large', 'play', 'progress', 'current-time',
                             'mute', 'volume', 'settings', 'fullscreen'],
-                // Increase Plyr's stall tolerance so throttled delivery
-                // doesn't make it show its own spinner prematurely
                 seekTime : 10,
             });
 
-            player.on('ready', () => {
-                // Hide the initial skeleton loader
+            // ── Ready ──────────────────────────────────────────
+            player.on('ready', function () {
                 skeletonLoader.style.display = 'none';
-
-                const savedVolume = localStorage.getItem('playerVolume');
+                var savedVolume = localStorage.getItem('playerVolume');
                 if (savedVolume) player.volume = parseFloat(savedVolume);
 
-                // ── Resume from quality-switch saved position ──────
+                // If resuming from a quality switch, seek then play
                 if (startTime > 0) {
-                    // For a resuming load: seek first, then gate the buffer
-                    const onFirstCanPlay = function () {
+                    function onFirstCanPlay() {
                         videoPlayer.removeEventListener('canplay', onFirstCanPlay);
                         videoPlayer.currentTime = startTime;
-
-                        startBufferGate(function () {
-                            player.play();
-                            startTokenRefresh();
-                        });
-                    };
+                        player.play();
+                        startTokenRefresh();
+                    }
                     videoPlayer.addEventListener('canplay', onFirstCanPlay);
-
                 } else {
-                    // ── Fresh load: wait for pre-buffer gate ──────
-                    // We don't call play() until MIN_BUFFER_SECONDS
-                    // have been downloaded (uses the burst window).
-                    const onFirstCanPlay = function () {
-                        videoPlayer.removeEventListener('canplay', onFirstCanPlay);
-                        startBufferGate(function () {
-                            startTokenRefresh();
-                            // Player is ready — user can now press play
-                            // We do NOT force autoplay; let the user press play
-                        });
-                    };
-                    videoPlayer.addEventListener('canplay', onFirstCanPlay);
+                    // Fresh load: no pre-buffer gate.
+                    // preload="auto" already causes the browser to download
+                    // during the backend's burst window silently.
+                    // The buffer overlay will appear ONLY if the user presses
+                    // play before enough data arrives (the 'waiting' event).
+                    startTokenRefresh();
                 }
             });
 
-            player.on('play',         () => { ambientCanvas.classList.add('active'); drawAmbientFrame(); });
-            player.on('pause',        () => { ambientCanvas.classList.remove('active'); cancelAnimationFrame(animationFrameId); });
-            player.on('volumechange', () => localStorage.setItem('playerVolume', player.volume));
-            player.on('waiting',      () => { if (!isSwapping) loadingSpinner.style.display = 'flex'; });
-            player.on('playing',      () => loadingSpinner.style.display = 'none');
-            player.on('ended',        () => stopTokenRefresh());
+            // ── V2 CORE: show overlay ONLY on genuine stall ────
+            player.on('waiting', function () {
+                if (!isSwapping) showBufferOverlay();
+            });
 
-            // ── Error handler: if token expired mid-stream, swap now ─
-            videoPlayer.addEventListener('error', async function (e) {
-                const code = videoPlayer.error ? videoPlayer.error.code : 0;
-                // code 4 = MEDIA_ERR_SRC_NOT_SUPPORTED (often a 403)
+            // Hide as soon as data flows again
+            player.on('playing', function () {
+                hideBufferOverlay();
+            });
+
+            // Also hide on canplay (covers cases where 'playing' fires late)
+            videoPlayer.addEventListener('canplay', function () {
+                if (bufferOverlay.classList.contains('visible')) {
+                    hideBufferOverlay();
+                }
+            });
+
+            player.on('play',         function () { ambientCanvas.classList.add('active'); drawAmbientFrame(); });
+            player.on('pause',        function () { ambientCanvas.classList.remove('active'); cancelAnimationFrame(animationFrameId); });
+            player.on('volumechange', function () { localStorage.setItem('playerVolume', player.volume); });
+            player.on('ended',        function () { stopTokenRefresh(); stopRingUpdater(); });
+
+            // ── Stream error recovery ──────────────────────────
+            videoPlayer.addEventListener('error', async function () {
+                var code = videoPlayer.error ? videoPlayer.error.code : 0;
+                // code 2 = MEDIA_ERR_NETWORK, 4 = MEDIA_ERR_SRC_NOT_SUPPORTED (often 403)
                 if (code === 4 || code === 2) {
                     console.warn('[KC] Stream error — attempting token refresh recovery.');
+                    showNotification('Stream error detected. Reconnecting...', 'warning');
                     await silentTokenRefresh();
                 }
             });
         }
 
-        // ════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════
         //  MAIN INIT
-        // ════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════
         async function initializePlayer() {
             loadTheme();
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const postId  = urlParams.get('view_id') || urlParams.get('id');
-            const season  = urlParams.get('season')  || urlParams.get('s');
-            const episode = urlParams.get('episode') || urlParams.get('e');
+            var urlParams = new URLSearchParams(window.location.search);
+            var postId    = urlParams.get('view_id') || urlParams.get('id');
+            var season    = urlParams.get('season')  || urlParams.get('s');
+            var episode   = urlParams.get('episode') || urlParams.get('e');
 
             if (!postId) {
                 videoTitle.textContent = 'Error: Invalid Link';
@@ -736,63 +894,57 @@
             currentPostId = postId;
 
             try {
-                // ── STEP 1: Fetch initial token FIRST ─────────────
-                let initialToken;
+                // ── 1. Fetch token first ───────────────────────
+                var initialToken = '';
                 try {
                     initialToken = await fetchToken(postId);
                 } catch (tokenErr) {
-                    // If token endpoint fails, we still try to load (backend
-                    // might allow token-less access in dev mode)
                     console.warn('[KC] Initial token fetch failed:', tokenErr);
-                    initialToken = '';
+                    showNotification('Token fetch failed. Stream may not load.', 'warning');
                 }
 
-                // ── STEP 2: Fetch video metadata from WP API ──────
-                let apiUrl = `https://www.keralacaptain.shop/wp-json/keralacaptain/v1/get_player_data?post_id=${postId}`;
-                if (season && episode) apiUrl += `&season=${season}&episode=${episode}`;
+                // ── 2. Fetch video metadata from WP API ───────
+                var apiUrl = 'https://www.keralacaptain.shop/wp-json/keralacaptain/v1/get_player_data?post_id=' + postId;
+                if (season && episode) apiUrl += '&season=' + season + '&episode=' + episode;
 
-                const response = await fetch(apiUrl);
+                var response = await fetch(apiUrl);
                 if (!response.ok) throw new Error('Video not found or access denied.');
-                const videoData = await response.json();
+                var videoData = await response.json();
 
-                // Set page title
-                let displayTitle = videoData.title || 'Video';
-                if (videoData.current_episode) displayTitle += ` - ${videoData.current_episode}`;
+                // ── 3. Set title ───────────────────────────────
+                var displayTitle = videoData.title || 'Video';
+                if (videoData.current_episode) displayTitle += ' - ' + videoData.current_episode;
                 videoTitle.textContent = displayTitle;
 
-                const qualities   = videoData.stream_links;
-                const qualityMap  = new Map(Object.entries(qualities));
+                var qualities  = videoData.stream_links;
+                var qualityMap = new Map(Object.entries(qualities));
 
                 // Sort 1080p → 720p → 480p
-                const sortedLabels = Array.from(qualityMap.keys()).sort((a, b) =>
-                    parseInt(b.replace('p','')) - parseInt(a.replace('p',''))
-                );
+                var sortedLabels = Array.from(qualityMap.keys()).sort(function (a, b) {
+                    return parseInt(b.replace('p', '')) - parseInt(a.replace('p', ''));
+                });
 
-                // ── STEP 3: Resolve starting quality + position ───
-                const savedQuality  = localStorage.getItem('savedUserQuality');
-                const savedPosition = parseFloat(localStorage.getItem('playbackPosition')) || 0;
+                // ── 4. Resolve starting quality + resume pos ──
+                var savedQuality  = localStorage.getItem('savedUserQuality');
+                var savedPosition = parseFloat(localStorage.getItem('playbackPosition')) || 0;
+                var initialLabel  = sortedLabels[0];
+                if (savedQuality && qualityMap.has(savedQuality)) initialLabel = savedQuality;
 
-                let initialLabel = sortedLabels[0];
-                if (savedQuality && qualityMap.has(savedQuality)) {
-                    initialLabel = savedQuality;
-                }
+                var initialBaseUrl = qualityMap.get(initialLabel);
 
-                // Base stream URL (no token) — token is appended by buildUrl()
-                const initialBaseUrl = qualityMap.get(initialLabel);
-
-                // ── STEP 4: Render quality buttons ────────────────
+                // ── 5. Render quality buttons ──────────────────
                 qualityControls.innerHTML = '';
-                sortedLabels.forEach(label => {
-                    const url    = qualityMap.get(label);
-                    const btn    = document.createElement('button');
+                sortedLabels.forEach(function (label) {
+                    var url = qualityMap.get(label);
+                    var btn = document.createElement('button');
                     btn.className   = 'quality-btn';
                     btn.textContent = label;
-                    btn.onclick     = () => window.changeQuality(url, label);
+                    btn.onclick     = function () { window.changeQuality(url, label); };
                     if (label === initialLabel) btn.classList.add('active');
                     qualityControls.appendChild(btn);
                 });
 
-                // ── STEP 5: Launch player with token ──────────────
+                // ── 6. Launch player ───────────────────────────
                 await setupPlayer(initialBaseUrl, initialToken, savedPosition);
 
                 // Clear one-time resume state
@@ -800,11 +952,10 @@
 
             } catch (err) {
                 skeletonLoader.innerHTML =
-                    `<div style="color:#ff5555;padding:20px;text-align:center;">
-                        Error: ${err.message}
-                     </div>`;
+                    '<div style="color:#ff5555;padding:20px;text-align:center;">Error: ' + err.message + '</div>';
                 stopTokenRefresh();
-                stopBufferGate();
+                stopRingUpdater();
+                showNotification(err.message, 'error');
             }
         }
 
