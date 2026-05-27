@@ -1,3 +1,8 @@
+    
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -660,138 +665,7 @@
                 var wasPlaying  = !player.paused;
                 var newUrl      = buildUrl(currentBaseStreamUrl, newToken);
                 currentToken    = newToken;
-
-                videoPlayer.src = newUrl;
-                videoPlayer.load();
-
-                // Wait for canplay (or timeout after 8 s)
-                await new Promise(function (resolve) {
-                    function onCp() { videoPlayer.removeEventListener('canplay', onCp); resolve(); }
-                    videoPlayer.addEventListener('canplay', onCp);
-                    setTimeout(resolve, 8000);
-                });
-
-                if (savedTime > 0) videoPlayer.currentTime = savedTime;
-                if (wasPlaying) {
-                    try { await videoPlayer.play(); } catch (_) {}
-                }
-            } catch (err) {
-                console.warn('[KC] Token swap failed:', err);
-            } finally {
-                isSwapping = false;
-            }
-        }
-
-        async function silentTokenRefresh() {
-            if (!currentPostId) return;
-            try {
-                var newToken = await fetchToken(currentPostId);
-                await doTokenSwap(newToken);
-            } catch (err) {
-                console.warn('[KC] Silent token refresh failed — keeping current token.');
-            }
-        }
-
-        function startTokenRefresh() {
-            stopTokenRefresh();
-            // Refresh every 45 s (token lives 60 s → 15 s grace window)
-            tokenRefreshInterval = setInterval(silentTokenRefresh, 45 * 1000);
-        }
-
-        function stopTokenRefresh() {
-            if (tokenRefreshInterval) {
-                clearInterval(tokenRefreshInterval);
-                tokenRefreshInterval = null;
-            }
-        }
-
-        // ══════════════════════════════════════════════════════
-        //  DOUBLE-TAP SKIP (YouTube-style)
-        //  Left half = rewind 10 s  |  Right half = forward 10 s
-        //  pointer-events on skip-overlay remains NONE so it
-        //  never blocks fullscreen or Plyr controls.
-        // ══════════════════════════════════════════════════════
-        var lastTapTime = 0;
-        var lastTapSide = null;
-        var skipIconTimer = null;
-
-        function flashSkipIcon(side) {
-            rewindIcon.classList.remove('show');
-            forwardIcon.classList.remove('show');
-            skipOverlay.classList.add('active');
-            if (side === 'left')  rewindIcon.classList.add('show');
-            if (side === 'right') forwardIcon.classList.add('show');
-            clearTimeout(skipIconTimer);
-            skipIconTimer = setTimeout(function () {
-                skipOverlay.classList.remove('active');
-                rewindIcon.classList.remove('show');
-                forwardIcon.classList.remove('show');
-            }, 600);
-        }
-
-        playerContainer.addEventListener('touchend', function (e) {
-            // Ignore taps on Plyr control bar (bottom 60px)
-            var rect    = playerContainer.getBoundingClientRect();
-            var touch   = e.changedTouches[0];
-            var tapY    = touch.clientY - rect.top;
-            if (tapY > rect.height - 60) return; // let Plyr handle controls
-
-            var now     = Date.now();
-            var tapX    = touch.clientX - rect.left;
-            var side    = tapX < rect.width / 2 ? 'left' : 'right';
-
-            if (now - lastTapTime < 300 && lastTapSide === side) {
-                // Double tap
-                e.preventDefault();
-                if (side === 'left') {
-                    videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 10);
-                    flashSkipIcon('left');
-                } else {
-                    videoPlayer.currentTime = Math.min(
-                        videoPlayer.duration || Infinity,
-                        videoPlayer.currentTime + 10
-                    );
-                    flashSkipIcon('right');
-                }
-                lastTapTime = 0;
-                lastTapSide = null;
-            } else {
-                lastTapTime = now;
-                lastTapSide = side;
-            }
-        }, { passive: false });
-
-        // ── Theme ─────────────────────────────────────────────
-        themeToggle.addEventListener('change', function () {
-            document.body.classList.toggle('light-mode');
-            localStorage.setItem('theme', themeToggle.checked ? 'light' : 'dark');
-        });
-        function loadTheme() {
-            if (localStorage.getItem('theme') === 'light') {
-                document.body.classList.add('light-mode');
-                themeToggle.checked = true;
-            }
-        }
-
-        // ── Ambient Background ────────────────────────────────
-        function drawAmbientFrame() {
-            if (!player || player.paused || player.ended || !videoPlayer.videoWidth) {
-                cancelAnimationFrame(animationFrameId); return;
-            }
-            ambientCtx.drawImage(videoPlayer, 0, 0, ambientCanvas.width, ambientCanvas.height);
-            animationFrameId = requestAnimationFrame(drawAmbientFrame);
-        }
-
-        // ══════════════════════════════════════════════════════
-        //  QUALITY SWITCHER — EXACTLY AS ORIGINAL
-        //  Page reload forces backend to drop old Telegram conn.
-        // ══════════════════════════════════════════════════════
-        window.changeQuality = function (qualityUrl, qualityLabel) {
-            stopTokenRefresh();
-            stopRingUpdater();
-            clearTimeout(slowInternetTimer);
-            var currentTime = player ? player.currentTime : 0;
-            localStorage.setItem('savedUserQuality',   qualityLabel);
+< truncated lines 663-794 >
             localStorage.setItem('playbackPosition',   currentTime);
             localStorage.setItem('savedBaseStreamUrl', qualityUrl);
             window.location.reload();
